@@ -1,7 +1,7 @@
 /*
 File name: Staking supercontract
-Version: 1.1
-Patch notes: added a new function that acts as a place holder for the rewards when staking
+Version: 1.2
+Patch notes: added get_clean_call_params() in withdrawal so that can be consistent.
 
 PENDING: 
 1) dont know if should have additional condition to determine if the person has withrawn or not written into the file
@@ -57,6 +57,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
 
      
     /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
+    // temp holds the cleaned up get_call_params
     let mut temp: Vec<String> = Vec::new();
     
     let status_get_clean_params = get_clean_call_params(&mut temp);
@@ -227,15 +228,34 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // check if the condition has been met
     // PENDING, cannot use >= cause if its true, it will keep sending money right?
     if current_block_height_i64 >= data_block_height_i64 && converted_withdrawal_status == 0{ 
-        //current_block_height_i64 != data_block_height_i64
 
-        //Address to game developer / main account 
-        let address = "SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO"; 
-        let message = "I sent the mosaic back"; //Message
 
-        // PENDING change this to the mosaic that is in the folder
-        let mosaic = "1000"; //Mosaic
+        /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
+        // temp holds the cleaned up get_call_params
+        let mut temp: Vec<String> = Vec::new();
+        
+        let status_get_clean_params = get_clean_call_params(&mut temp);
 
+        // if the address is not valid, immediately fail
+        // PENDING, want to use panic!(); or return 1;?
+        if status_get_clean_params == 1 {
+
+            // can choose to also panic!();
+            return 1;
+        }
+
+        // to convert to pointers because rest of the code relies on &str not String
+        // .iter() is to create an iterator so that can go through all of the items in the vectr
+        // .map() is to convert the contents that is presented by the iterator
+        // .collect() is to collect all the converted components
+        let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
+
+        let address = input_parts[0]; //Address to locked place
+        let message = input_parts[1]; //Message
+        let mosaic = input_parts[2]; //Total mosaics to be send
+
+        /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
+        
 
 
         /////////////////////// address conversion to base 32 starts ///////////////////////
@@ -298,8 +318,8 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
         if status_get_clean_rewards == 1{
             
-            // PENDING
-            return 1;
+        // PENDING
+        return 1;
         }
 
         // convert the String into &str for consistency
