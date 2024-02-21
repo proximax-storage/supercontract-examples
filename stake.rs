@@ -1,7 +1,7 @@
 /*
 File name: Staking supercontract
-Version: 1.6
-Patch notes: made the deposit and withdraw use the same functions to write and read file contents
+Version: 1.7
+Patch notes: made both use get_caller_public_key and made withdrawal no need to put parameters. Addresses security issue where other people can withdraw
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use
@@ -39,6 +39,7 @@ pub mod internet;
 
 use blockchain::get_block_height;
 use blockchain::get_call_params;
+use blockchain::get_caller_public_key;
 use blockchain::{AggregateTransaction, EmbeddedTransaction};
 
 use file::{FileReader, FileWriter};
@@ -188,14 +189,40 @@ pub unsafe extern "C" fn deposit() -> u32 {
         //panic!();
         return 1;
         }
-    /////////////////////// transaction creation starts ///////////////////////
+    /////////////////////// transaction creation ends ///////////////////////
+    
+
+
+    /////////////////////// get caller public starts ///////////////////////
+    // get the caller public key
+    let caller_public_key_vector_u8: [u8; 32] = get_caller_public_key();
+
+    // this variable stores the data of the public key in an array with only one element
+    let mut caller_public_key_vector_string: Vec<String> = Vec::new();
+
+    // convert the public key to a string to use as a key
+    let status_convert_public_key_to_string = convert_vector_u8_to_string(caller_public_key_vector_u8, &mut 
+    caller_public_key_vector_string);
+
+    // PENDING, want to use panic!(); or return 1;?
+    if status_convert_public_key_to_string == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
+
+    // this variable holds the information in string
+    let caller_public_key = &caller_public_key_vector_string[0];
+    /////////////////////// get caller public ends ///////////////////////
     
 
     
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+    // MODIFY
+    // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
     // has the normal file write and save the height so that can be checked here to see if condition is fulfilled or not
     // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
-    let string_to_save = format!("A;key{};{};{};{};{};0;", sender_address,address,message,mosaic,current_block_height);
+    let string_to_save = format!("A;key{};{};{};{};{};{};0;", caller_public_key , sender_address , address , message , mosaic , current_block_height);
 
     let mut input_array = vec![string_to_save];
 
@@ -236,6 +263,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn withdraw() -> u32 {
 
+    /* 
     /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
     // temp holds the cleaned up get_call_params
     let mut temp: Vec<String> = Vec::new();
@@ -267,6 +295,29 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
 
     /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
+    */
+
+    /////////////////////// get caller public starts ///////////////////////
+    // get the caller public key
+    let caller_public_key_vector_u8: [u8; 32] = get_caller_public_key();
+
+    // this variable stores the data of the public key in an array with only one element
+    let mut caller_public_key_vector_string: Vec<String> = Vec::new();
+
+    // convert the public key to a string to use as a key
+    let status_convert_public_key_to_string = convert_vector_u8_to_string(caller_public_key_vector_u8, &mut 
+    caller_public_key_vector_string);
+
+    // PENDING, want to use panic!(); or return 1;?
+    if status_convert_public_key_to_string == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
+
+    // this variable holds the information in string
+    let caller_public_key = &caller_public_key_vector_string[0];
+    /////////////////////// get caller public ends ///////////////////////
     
 
     
@@ -291,11 +342,15 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         return 1;
     }
 
+    // MODIFY
+    // if the way the key is stored is changed, modify here
     // to format how key will look like
-    let target = format!("key{}",input_sender_address);
+    let target = format!("key{}",caller_public_key);
 
+    // MODIFY
+    // if there is a change in number of data, modify the number of data per client 
     // to search for the data 
-    let linear_search_status = linear_search(&mut data, &target , 7,&mut read_buffer, &mut result);
+    let linear_search_status = linear_search(&mut data, &target , 8,&mut read_buffer, &mut result);
 
     // if the key is not valid, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -309,27 +364,33 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
     
     /////////////////////// supercontract caller data extraction starts ///////////////////////
+    // MODIFY 
+    // if the number of data here changed, please add here
     // UPDATE, can make here more robust
     // all the indexing must be 0,2,4..2n cause of the ";"
     // get placeholder / extra character
     let read_placeholder = result[0].clone();
 
-    // get the sender's address 
+    // get the caller's public key
     let read_sender_address = result[2].clone();
 
-    // get the receiver's address 
-    let read_receiver_address = result[4].clone();
+    // get the sender's address 
+    let read_sender_address = result[4].clone();
 
-    let read_message = result[6].clone();
+    // get the receiver's address 
+    let read_receiver_address = result[6].clone();
+
+    // get the message 
+    let read_message = result[8].clone();
 
     // get the mosaic from the text file
-    let mosaic = result[8].clone();
+    let mosaic = result[10].clone();
 
     // take the height
-    let data_block_height = result[10].clone();
+    let data_block_height = result[12].clone();
 
     // get the withrawal status 
-    let withdrawal_status = result[12].clone();
+    let withdrawal_status = result[14].clone();
 
     // convert the status to u32
     let converted_withdrawal_status = withdrawal_status.parse::<u32>().unwrap();
@@ -353,23 +414,9 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
     // check if the condition has been met
     if current_block_height_i64 >= data_block_height_i64 && converted_withdrawal_status == 0{ 
-
-        // PENDING
-        
-        /* 
-        // which way do we want
-        // method 1, use the data stored inside the text file
-        let end_sender_address_index = read_sender_address.len();
-
-        // UPDATE
-        // this can be made more modular by using the function 
-        let start_sender_address_index = 3;
-        let send_address = &read_sender_address[start_sender_address_index..end_sender_address_index];
-        */
-
         
         // method 2, use the input from users
-        let send_address = input_sender_address;
+        let send_address = read_sender_address.as_str();
         
 
         /////////////////////// address conversion to base 32 starts ///////////////////////
@@ -388,21 +435,6 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         /////////////////////// address conversion to base 32 ends ///////////////////////
 
 
-
-        /////////////////////// message conversion to base 32 starts ///////////////////////
-        // this is the array that will store the message in bytes
-        let mut message_in_bytes: Vec<u8> = Vec::new();
-        let status_decode_message: u8 = decode_message_to_u8(&read_message, &mut message_in_bytes, 0 );
-
-        // PENDING
-        if status_decode_message == 1{
-
-        //panic!();
-        return 1;
-        }
-        /////////////////////// message conversion to base 32 ends ///////////////////////
-         
-        
 
         /////////////////////// message conversion to base 32 starts ///////////////////////
         // this is the array that will store the message in bytes
@@ -1307,6 +1339,22 @@ fn convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8
     let mut temp: Vec<u8> = in_string_vector.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
 
     out_u8_vector.extend_from_slice(&temp);
+
+    return status;
+}
+
+fn convert_vector_u8_to_string( input_vector_u8: [u8;32] , output_string:&mut Vec<String> ) -> u8 {
+    let mut status = 0;
+
+    let mut converted_to_string: Vec<String> = Vec::new();
+
+    for x in input_vector_u8.iter(){
+        converted_to_string.push(x.to_string());
+    }
+
+    let mut temp = converted_to_string.concat();
+
+    output_string.push(temp);
 
     return status;
 }
