@@ -1,7 +1,7 @@
 /*
 File name: Staking supercontract
-Version: 1.4.A
-Patch notes: changed withdrawal to return the money to the sender. There are 2 versions pls find PENDING
+Version: 1.5
+Patch notes: made a new string split terminator and integrated it with the system. 
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use
@@ -22,8 +22,14 @@ SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA
 address of empty wallet; message( can be anything ); mosaic
 
 Use this for new staking supercontract with linear search 
+main account
 SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000
+third account
 SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Bye Bye money;1000
+forth account
+SBE7PCA4TVVM5NAN5RU7HJSTZ7PLJGSRIYH4IP3Q;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Ho Ho money go go;1000
+
+SDBS66UKIK667MCYE6UKQ4ZHTFZTJ6AMFB4ONTUA;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;XXXXXXXXXXXXXXXX;1000
 */
 pub mod blockchain;
 pub mod dir_iterator;
@@ -50,8 +56,10 @@ pub unsafe extern "C" fn run() -> u32 {
     // creates file
     {
 		let mut file = FileWriter::new("StakingSupercontractClientInformation.txt").unwrap();
+
 		file.flush().unwrap();
 	}
+
     return 0;
 }
 
@@ -106,6 +114,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // 1 block = 15s, required block heigh = wanted time taken/ needed before release of deposit
     // +80 is approx 5 mins, 15s * 80 , 
     // also lets say if we put 80, then best is to have the autorun run 80 times + 20
+    // MODIFY
     let current_block_height = get_block_height() + 5;
     /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
     
@@ -275,7 +284,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let target = format!("key{}",input_sender_address);
 
     // to search for the data 
-    let linear_search_status = linear_search(&mut data, &target , &mut read_buffer, &mut result);
+    let linear_search_status = linear_search(&mut data, &target , 7,&mut read_buffer, &mut result);
 
     // if the key is not valid, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -286,8 +295,24 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     }
     /////////////////////// read and search for the supercontract caller ends ///////////////////////
     
+    {
+        // re-create the file
+        let mut file = FileWriter::new("test.txt").unwrap();
+
+        let mut converted_target_u8: Vec<u8> = result.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
+
+        let mut temp: Vec<u8> = data.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
+
+        // write target first
+        file.write( &converted_target_u8).unwrap();
+
+        file.write( &temp).unwrap();
+
+        file.flush().unwrap();
+    }
 
 
+    
     /////////////////////// supercontract caller data extraction starts ///////////////////////
     // UPDATE, can make here more robust
     // all the indexing must be 0,2,4..2n cause of the ";"
@@ -323,6 +348,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     
 
 
+    
     /////////////////////// transaction starts ///////////////////////
     // get current block height
     let current_block_height: u64 = get_block_height();
@@ -466,15 +492,15 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
 
         // PENDING, can use append?
-        // to set the status of withrawal to true, so that cannot repeatedly withraw
+        // can if there is a function to add ";" to the read buffer
         {
             // re-create the file
 			let mut file = FileWriter::new("StakingSupercontractClientInformation.txt").unwrap();
 
-            // rewrite everything first
+            // write target first
             file.write(&converted_target_u8).unwrap();
 
-            // write wanted contents
+            // rewrite whole content
             file.write(&converted_others_u8).unwrap();
 
 			file.flush().unwrap();
@@ -486,6 +512,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         return 99;
     }
     /////////////////////// transaction ends ///////////////////////
+
     
 }
 
@@ -841,9 +868,18 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
     // convert the data to 
     let file_content_in_string = String::from_utf8_lossy(&file_content);
 
+
+    // PENDING
+    let mut data_parts = Vec::new();
+    let status_split = string_spliter_terminator(file_content_in_string.to_string(), ";",&mut data_parts);
+
+
+    /* 
     // convert the data into String
     let data_parts: Vec<String> = file_content_in_string.split(';').map(|s| s.to_string()).collect(); 
+    */
 
+    // combine the data to the output array / vector
     out.extend_from_slice(&data_parts);
 
     return status;
@@ -855,6 +891,8 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// # Parameters
 /// - data_array: the contents from the file in Vec<String> 
 /// - target: the String we are looking for
+/// - number_of_data_per_client: how many words are there seperated by a delimiter for 1 client / customer inside the text file
+/// -- for example: 3 A;key001,key008
 /// - read_buffer_modified: the output Vector that will store the contents of the file without the target inside of it
 /// - wanted_data: the target data
 /// 
@@ -875,19 +913,23 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// let mut data: Vec<String> = Vec::new();
 /// let mut read_buffer : Vec<String> = Vec::new();
 /// file_read("try.txt", &mut data);
-/// linear_search(&mut data, "key1", &mut read_buffer, &mut result);
+/// linear_search(&mut data, "key1", 7, &mut read_buffer, &mut result);
 /// ```
 /// 
 /// # Notes
-fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>) -> u8 {
+fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_client:u8, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>) -> u8 {
     // needs to return the result / status of this function
     // set 1 by default, will change to 0 if target is found
     let mut status = 1;
 
+    // MODIFY
+    // this indicates the number jumps to perform 
+    let number_of_jumps = 2;
+
     // while loop counter 
     let mut counter = 0;
 
-    // NEEDED
+    // MODIFY
     // please input the string here that will represent the prefix of the keys
     let other_keys = "key";
 
@@ -904,46 +946,40 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified
             // this variable holds the data in String type
             let mut wanted_data_parts_in_string: Vec<String> = Vec::new();
 
-            // must +2 or not won't work, 
-            // when adding the value, must be > 1 or wont work
-            // eg: a;key1,coo1,potato
-            // needs to be +3 because it will exclude the last index means, if lets say we found key1 at index 0
-            // it will be data_array[0..4] excluding item at index 4  
-
-            // UPDATE, can make here more robust
-
             // sammple data:
             // A;keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;329;0
 
-            // wanted_data_parts_in_string.extend_from_slice(&data_array[index-1..index+2] );
-            wanted_data_parts_in_string.push(data_array[counter-1].clone());
-            
-            // need to append the ";" for consistency 
-            wanted_data_parts_in_string.push(";".to_string());
+            // MODIFY
+            // if there is a change in the way the data is organised in the file, need to modify here accordingly
 
-            // push the sender address / key
-            wanted_data_parts_in_string.push(data_array[counter].clone());
-            wanted_data_parts_in_string.push(";".to_string());
+            // this is the counter used to extract the information
+            // -2 because of the extra character so lets say if we found the target at index 2
+            // we want to start at the extra character, so ned to 2 - x = 0 -> x = 2 -> 2 - 2 = 0
+            let mut word_index = counter as u8 - number_of_jumps;
 
-            // push the receiver address 
-            wanted_data_parts_in_string.push(data_array[counter+1].clone());
-            wanted_data_parts_in_string.push(";".to_string());
+            // this is seperated from the word index for more readability
+            // this is because the number of repetitions can be done like this 
+            // number_of_data_per_client + counter 
+            let mut number_of_repetitions_now = 0;
 
-            // push the message
-            wanted_data_parts_in_string.push(data_array[counter+2].clone());
-            wanted_data_parts_in_string.push(";".to_string());
+            while number_of_repetitions_now < number_of_data_per_client {
 
-            // push the mosaic
-            wanted_data_parts_in_string.push(data_array[counter+3].clone());
-            wanted_data_parts_in_string.push(";".to_string());
+                println!("data: {} | wanted_data_parts_in_string: {:?}", data_array[word_index as usize], wanted_data_parts_in_string);
 
-            // push the current block height
-            wanted_data_parts_in_string.push(data_array[counter+4].clone());
-            wanted_data_parts_in_string.push(";".to_string());
+                // obtains the data itself and pushes it into the vector
+                wanted_data_parts_in_string.push(data_array[word_index as usize].clone());
+                
+                // need to append the ";" for consistency 
+                wanted_data_parts_in_string.push(";".to_string());
 
-            // push status
-            wanted_data_parts_in_string.push(data_array[counter+5].clone());
-            wanted_data_parts_in_string.push(";".to_string());
+                // MODIFY
+                // need to +2 here because the data_array has ";", so needs to skip over it
+                // increment the index
+                word_index += number_of_jumps;
+
+                // increment the number of times repeated
+                number_of_repetitions_now += 1;
+            }
 
             // put the data in
             wanted_data.extend_from_slice(&wanted_data_parts_in_string);
@@ -955,38 +991,28 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified
         {
             let mut read_buffer_temp :Vec<String> = Vec::new();
 
-            
-            // UPDATE, can make here more robust
+            // this is the counter used to extract the information
+            // -1 because of the extra character
+            let mut word_index = counter as u8 - number_of_jumps;
 
-            // read_buffer_temp.extend_from_slice(&data_array[index-1..index+2] );
-            read_buffer_temp.push(data_array[counter-1].clone());
-            
-            // need to append the ";" for consistency 
-            read_buffer_temp.push(";".to_string());
+            let mut number_of_repetitions_now = 0;
 
-            // push the sender address / key
-            read_buffer_temp.push(data_array[counter].clone());
-            read_buffer_temp.push(";".to_string());
+            // -1 because if lets say we have 7 words, we start from -1, so lets say we found the target at index 1,
+            // it will be like this 0,1,2,3,4,5,6 ( inclusive )
+            while number_of_repetitions_now < number_of_data_per_client {
 
-            // push the receiver address 
-            read_buffer_temp.push(data_array[counter+1].clone());
-            read_buffer_temp.push(";".to_string());
+                read_buffer_temp.push(data_array[word_index as usize].clone());
+                
+                // need to append the ";" for consistency 
+                read_buffer_temp.push(";".to_string());
 
-            // push the message
-            read_buffer_temp.push(data_array[counter+2].clone());
-            read_buffer_temp.push(";".to_string());
+                // increment the index
+                // +2, cause need to skip over the ";" 
+                word_index += number_of_jumps;
 
-            // push the mosaic
-            read_buffer_temp.push(data_array[counter+3].clone());
-            read_buffer_temp.push(";".to_string());
-
-            // push the current block height
-            read_buffer_temp.push(data_array[counter+4].clone());
-            read_buffer_temp.push(";".to_string());
-
-            // push status
-            read_buffer_temp.push(data_array[counter+5].clone());
-            read_buffer_temp.push(";".to_string());
+                // increment the number of times repeated
+                number_of_repetitions_now += 1;
+            }
 
             // put the data in
             read_buffer_modified.extend_from_slice(&read_buffer_temp);
@@ -1063,6 +1089,96 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
         // flush out any remiaining data
 		file.flush().unwrap();
 	}
+
+    return status;
+}
+
+fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<String> ) -> u8 {
+
+    let mut status = 0;
+
+    let mut temp: Vec<char> = Vec::new();
+
+    let mut char_iter = input.chars().peekable();
+
+    while let Some( character ) = char_iter.next()
+    {
+        //println!("{}",character);
+
+        // if the next character is "Something"
+        // &next_char, & because if dont have it will be a reference to the char
+        if let Some(&next_char) = char_iter.peek() 
+        {
+
+            // if the current character is not the delimiter
+            if character.to_string() != delimiter
+            {
+                temp.push( character );
+            }
+
+            // if it is the delimiter
+            else if character.to_string() == delimiter
+            {
+                // push the string
+                output.push( temp.iter().collect() );
+
+                // push the delimiter
+                output.push( delimiter.to_string().clone() );
+
+                temp.clear();
+            }
+        }
+
+        // its the last string
+        else
+        {
+            println!("{:?} char: {}",temp,character);
+
+            // this is if there is a character before the last delimiter, add it to the list first then only add the delimiter outside of the if
+            if temp.len() != 0 && character.to_string() != delimiter
+            {
+
+                // push the last character
+                temp.push( character ) ;
+
+                // push the last character in
+                output.push( temp.iter().collect() );
+
+                // clear the contents
+                temp.clear();
+            }
+            else if temp.len() != 0 && character.to_string() == delimiter
+            {
+                // push the last character in
+                output.push( temp.iter().collect() );
+
+                // clear the contents
+                temp.clear();
+
+                // push the last character if there is no delimiter at the end
+                // also used to push in the delimiter itself if its the last one
+                temp.push( character ) ;
+
+                // push the last character in
+                output.push( temp.iter().collect() );
+
+                // clear the contents
+                temp.clear();
+            }
+            else if temp.len() == 0
+            {
+
+                // push the last character
+                temp.push( character ) ;
+
+                // push the last character in
+                output.push( temp.iter().collect() );
+
+                // clear the contents
+                temp.clear();
+            }
+        }
+    }
 
     return status;
 }
