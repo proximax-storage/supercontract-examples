@@ -1,6 +1,6 @@
 /*
 File name: Game supercontract
-Version: 3
+Version: 4
 Patch notes: working deposit for contract deployer but not working send, as in cannot run send function 
 
 Notes for other developers:
