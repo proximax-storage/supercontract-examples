@@ -1,7 +1,7 @@
 /*
 File name: Staking supercontract
-Version: 1.0.1 
-Patch notes: fixed get_clean_call_params()
+Version: 1.1
+Patch notes: added a new function that acts as a place holder for the rewards when staking
 
 PENDING: 
 1) dont know if should have additional condition to determine if the person has withrawn or not written into the file
@@ -28,7 +28,7 @@ use blockchain::get_call_params;
 use blockchain::{AggregateTransaction, EmbeddedTransaction};
 
 use file::{FileReader, FileWriter};
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{ Read, Write};
 
 /// # Objective
 /// This function is used to deploy the supercontract onto the blockchain
@@ -91,7 +91,8 @@ pub unsafe extern "C" fn deposit() -> u32 {
 
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
     // has the normal file write and save the height so that can be checked here to see if condition is fulfilled or not
-    let string_to_save = format!("{};{}", mosaic, current_block_height);
+    // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
+    let string_to_save = format!("{};{};0", mosaic, current_block_height);
 
 	{
 		let mut file = FileWriter::new("DataGameDeveloper.txt").unwrap();
@@ -182,7 +183,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
 /// - It could also be, because there is no parameter / incorrect parameter
 ///     - Therefore, re-deploy and fill in the correct parameter information
 #[no_mangle]
-pub unsafe extern "C" fn withraw_deposit() -> u32 {
+pub unsafe extern "C" fn withdraw() -> u32 {
 
     let mut file_content = Vec::new();
     {
@@ -196,11 +197,20 @@ pub unsafe extern "C" fn withraw_deposit() -> u32 {
     let file_content_in_string = String::from_utf8_lossy(&file_content);
 
     // expected data
-    // 1000;40
+    // 1000;40;0
     let data_parts: Vec<&str> = file_content_in_string.split(';').collect(); 
+
+    // get the mosaic from the text file
+    let mosaic = data_parts[0];
 
     // take the height
     let data_block_height = data_parts[1];
+
+    // get the withrawal status 
+    let withdrawal_status = data_parts[2];
+
+    // convert to u32
+    let converted_withdrawal_status = withdrawal_status.parse::<u32>().unwrap();
 
     // convert to i64
     let data_block_height_i64: i64 = match data_block_height.trim().parse() {
@@ -216,7 +226,7 @@ pub unsafe extern "C" fn withraw_deposit() -> u32 {
 
     // check if the condition has been met
     // PENDING, cannot use >= cause if its true, it will keep sending money right?
-    if current_block_height_i64 >= data_block_height_i64 { 
+    if current_block_height_i64 >= data_block_height_i64 && converted_withdrawal_status == 0{ 
         //current_block_height_i64 != data_block_height_i64
 
         //Address to game developer / main account 
@@ -278,7 +288,25 @@ pub unsafe extern "C" fn withraw_deposit() -> u32 {
         /////////////////////// mosaic conversion to base 32 starts ///////////////////////
         // this is the array that will store the mosaic in bytes
         let mut mosaic_in_bytes = vec![0; 8];
-        let status_decode_mosaic_amount = decode_mosaic_amount_to_u8(mosaic, &mut mosaic_in_bytes);
+
+        // get the amount of rewards for this account //
+        // this is the variable that will store the mosaic that has been increased due to the staking 
+        let mut rewarded_mosaic_in_string = String::from("");
+
+        // get the clean amount of mosaic which is in String
+        let status_get_clean_rewards = get_clean_rewards(mosaic, &mut rewarded_mosaic_in_string);
+
+        if status_get_clean_rewards == 1{
+            
+            // PENDING
+            return 1;
+        }
+
+        // convert the String into &str for consistency
+        let rewarded_mosaic_in_str: &str = rewarded_mosaic_in_string.as_str();
+
+        // converts the string into a &[u8] 
+        let status_decode_mosaic_amount = decode_mosaic_amount_to_u8(rewarded_mosaic_in_str, &mut mosaic_in_bytes);
 
         // PENDING
         if status_decode_mosaic_amount == 1{
@@ -307,6 +335,16 @@ pub unsafe extern "C" fn withraw_deposit() -> u32 {
         }
         /////////////////////// transaction creation starts ///////////////////////
         
+
+        // to set the status of withrawal to true, so that cannot repeatedly withraw
+        {
+			let mut file = FileWriter::new("DataGameDeveloper.txt").unwrap();
+			file.write(rewarded_mosaic_in_str.as_bytes()).unwrap();
+			file.write(data_block_height.as_bytes()).unwrap();
+			file.write("1".as_bytes()).unwrap();
+			file.flush().unwrap();
+		}
+
         return 0;
     } else {
         return 99;
@@ -567,6 +605,53 @@ fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
 
     // this is to add the result to the existing array
     input_parts.extend(temp);
+
+    return status;
+}
+
+/// # Objective
+/// This function is used to get the amount staked and return the amount after interest / reward from staking into the blockchain 
+/// 
+/// # Parameters
+/// - mosaic: the amount in string type
+/// - rewarded_mosaic_in_string: the string that will hold the new amount of mosaic after interest in String data type
+/// 
+/// # Examples
+/// ```
+/// let mosaic = "1000";
+/// let mut rewarded_mosaic_in_string = String::from();
+/// 
+/// // get the clean amount of mosaic which is in String
+/// get_clean_rewards(mosaic, &mut rewarded_mosaic_in_string);
+/// 
+/// // convert the String into &str for consistency
+/// // this part is for the code above to ensure consistency, not neccessarily needed
+/// let rewarded_mosaic_in_str: &str = rewarded_mosaic_in_string.as_str();
+/// ```
+/// 
+/// # Notes 
+/// This function can return String instead of the status, but during development was afraid that it would create problems
+/// such as variable not living long enough.
+/// This function returns the status to ensure consistency
+#[no_mangle]
+fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> u8
+{
+    let mut status = 0;
+
+    // Convert the string to a u32 value
+    let mut value = mosaic.parse::<u32>().unwrap();
+
+    // PENDING
+    // add function here that will give precise number of how many XPX to give back
+    value += 100;
+
+    // removes all element in the collection just to make sure that there is no additional data infront that
+    // may or may not harm the system
+    rewarded_mosaic_in_string.clear();
+
+    // push in a reference to the string that has been converted,
+    // why string? this is to keep the whole system as consistent as possible
+    rewarded_mosaic_in_string.push_str(&value.to_string());
 
     return status;
 }
