@@ -1,7 +1,7 @@
 /*
 File name: Game supercontract
-Version: 1
-Patch notes: deposit function is working with new file management system
+Version: 2
+Patch notes: withdraw function is working with new file management system
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use, potential areas with bugs 
