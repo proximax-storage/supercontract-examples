@@ -344,7 +344,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
 /// 
 ///     5.4) transaction creation
 /// 
-///     5.4) transaction creation
+///     5.5) update the deposit information 
 /// 
 /// # Notes 
 /// - if the key / someone who did not deposit the account calls withdraw, the contract should return a status of 1
@@ -388,7 +388,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 /// 
 ///     5.4) transaction creation
 /// 
-///     5.4) transaction creation
+///     5.5) update the deposit information 
 /// 
 /// # Notes 
 /// - if the key / someone who did not deposit the account calls withdraw, the contract should return a status of 1
@@ -429,7 +429,7 @@ pub unsafe extern "C" fn send() -> u32 {
 /// 
 ///     5.4) transaction creation
 /// 
-///     5.4) transaction creation
+///     5.5) update the deposit information 
 /// 
 /// 
 /// # Notes 
