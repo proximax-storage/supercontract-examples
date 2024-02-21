@@ -12,7 +12,7 @@ Notes for other developers:
 Main account address 
 SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO
 
-Second account address
+Second account address 
 SD635GAAXIS6EHCEBLYDHJIRIHMMYAJMMMZH3YVC
 
 Third account address
