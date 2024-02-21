@@ -1,7 +1,7 @@
 /*
 File name: Staking supercontract
-Version: 1.5
-Patch notes: made a new string split terminator and integrated it with the system. 
+Version: 1.6
+Patch notes: made the deposit and withdraw use the same functions to write and read file contents
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use
@@ -43,6 +43,7 @@ use blockchain::{AggregateTransaction, EmbeddedTransaction};
 
 use file::{FileReader, FileWriter};
 use std::io::{ Read, Write};
+use std::vec;
 
 /// # Objective
 /// This function is used to deploy the supercontract onto the blockchain and write a file 
@@ -196,16 +197,26 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
     let string_to_save = format!("A;key{};{};{};{};{};0;", sender_address,address,message,mosaic,current_block_height);
 
-    // write the contents of this sender into the file
-    let status_append = file_append("StakingSupercontractClientInformation.txt", &string_to_save );
+    let mut input_array = vec![string_to_save];
 
-    // if the address is not valid, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if status_append == 1 {
+    // store the contents of the file here
+    let mut data: Vec<String> = Vec::new();
 
-        // can choose to also panic!();
+    // read the file
+    let status_file_read = file_read("StakingSupercontractClientInformation.txt", &mut data);
+
+    // PENDING
+    if status_file_read == 1{
         return 1;
     }
+
+    let status_append_existing = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut data, &mut input_array);
+
+    // PENDING
+    if status_append_existing == 1 {
+        return 1;
+    }
+
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
     
     return 0;
@@ -294,22 +305,6 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         return 1;
     }
     /////////////////////// read and search for the supercontract caller ends ///////////////////////
-    
-    {
-        // re-create the file
-        let mut file = FileWriter::new("test.txt").unwrap();
-
-        let mut converted_target_u8: Vec<u8> = result.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
-
-        let mut temp: Vec<u8> = data.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
-
-        // write target first
-        file.write( &converted_target_u8).unwrap();
-
-        file.write( &temp).unwrap();
-
-        file.flush().unwrap();
-    }
 
 
     
@@ -484,11 +479,31 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         // set the status to true
         result[index_status] = "1".to_string();
 
+        /* 
         // convert the target information from String into [u8]
         let mut converted_target_u8: Vec<u8> = result.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
 
         // convert the exisiting data from String into [u8]
         let mut converted_others_u8 : Vec<u8> = read_buffer.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
+        */
+
+        /* 
+        let mut converted_target_u8: Vec<u8> = Vec::new();
+        let mut converted_others_u8 : Vec<u8> = Vec::new();
+
+        let status_convert_vec_string_to_vec_u8_target = convert_string_vector_to_u8_vector(&mut result, &mut converted_target_u8);
+
+        // PENDING
+        if status_convert_vec_string_to_vec_u8_target == 1 {
+            return 1;
+        }
+
+        let status_convert_vec_string_to_vec_u8_original = convert_string_vector_to_u8_vector(&mut read_buffer, &mut converted_others_u8);
+        
+        // PENDING
+        if status_convert_vec_string_to_vec_u8_original == 1 {
+            return 1;
+        }
 
 
         // PENDING, can use append?
@@ -505,6 +520,14 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
 			file.flush().unwrap();
 		}
+        */
+        let status_file_append = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut read_buffer, &mut result);
+
+        // PENDING
+        if status_file_append == 1 {
+            return 1;
+        }
+
         /////////////////////// status update ends ///////////////////////
 
         return 0;
@@ -1093,6 +1116,26 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
     return status;
 }
 
+/// # Objective
+/// This function is designed to iterate through a string and seperate them into different strings based on "a" delimiter ( 1 delimiter )
+/// The reason for this function's existence is due to the sdk not being able to provide this function
+/// 
+/// # Parameters
+/// - input: the String that wants to be split
+/// - delimiter: the delimiter in &str type
+/// - output: the vector of String that will contain the list of Strings split into their respective
+/// 
+/// # Examples
+/// ```
+/// let mut result: Vec<String> = Vec::new();
+/// let mut read_buffer_modified = Vec::new();
+/// let mut wanted_data = Vec::new();
+/// let mut target = "keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO";
+/// let number_of_data_per_client = 7;
+/// string_spliter_terminator("A;keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;329;0;A;keyAD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;2000;329;0;".to_string(), ";", &mut result);
+/// ```
+/// 
+/// # Notes
 fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<String> ) -> u8 {
 
     let mut status = 0;
@@ -1179,6 +1222,91 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
             }
         }
     }
+
+    return status;
+}
+
+fn file_append_with_existing(file_path:&str , original_data:&mut Vec<String>, content:&mut Vec<String> ) -> u32 {
+    // needs to return the result / status of this function
+    let mut status: u32 = 0;
+
+	{
+        // create a file
+		let mut file = FileWriter::new(file_path).unwrap();
+
+        // rewrite everything that existed already
+        // file.write(file_content_in_string.as_bytes()).unwrap();
+
+        //////////////////// work here //////////////////////////////////////
+
+        // write the original content
+        let mut temp_original = Vec::new();
+        let mut temp_content = Vec::new();
+
+        let status_convert_original = convert_string_vector_to_u8_vector(original_data, &mut temp_original);
+
+        // PENDING
+        if status_convert_original == 1 {
+            return 1;
+        }
+        
+        file.write(&temp_original).unwrap();
+
+
+        let status_convert_content = convert_string_vector_to_u8_vector(content, &mut temp_content);
+
+        // PENDING
+        if status_convert_content == 1 {
+            return 1;
+        }
+
+        file.write(&temp_content).unwrap();
+        
+        // flush out any remiaining data
+		file.flush().unwrap();
+	
+
+        /* 
+        // iterate over the entire list and 
+        for words in content.iter()
+        {
+            // write what is wanted
+            file.write(words.as_bytes()).unwrap();
+        }
+        
+        // flush out any remiaining data
+        
+		file.flush().unwrap();
+        */
+	}
+
+    return status;
+}
+
+/// # Objective
+/// This function is designed to take in a Vector of String and convert it into a vector of u8
+/// 
+/// # Parameters
+/// - in_string_vector: the Vector of String that wants to be converted
+/// - out_u8_vector: the Vector of u8 that will store the converted version 
+/// 
+/// # Examples
+/// ```
+/// let mut converted_others_u8 : Vec<u8> = Vec::new();
+/// let status_convert_vec_string_to_vec_u8_target = convert_string_vector_to_u8_vector(&mut result, &mut converted_target_u8);
+/// //PENDING
+/// if status_convert_vec_string_to_vec_u8_target == 1 {
+///    return 1;
+/// }
+/// ```
+/// 
+/// # Notes
+fn convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8_vector:&mut Vec<u8> ) -> u8{
+    let mut status = 0;
+
+    let mut temp: Vec<u8> = in_string_vector.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
+
+    out_u8_vector.extend_from_slice(&temp);
 
     return status;
 }
