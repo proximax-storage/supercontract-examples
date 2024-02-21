@@ -1,13 +1,14 @@
 /*
 File name: Staking supercontract
-Version: 1.9.D
-Patch notes: fixed issue where the deposit information chosen is incorrect. As in the status update is wrong. The issue lied in status update at the end of the witdrawal 
+Version: 1.9.1
+Patch notes: code and functions are refactored to be made more readable and understandable. It is also the final version
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use, potential areas with bugs 
 - PENDING, means awaiting confirmation 
 - UPDATE, means for future updates
 
+// All the below comments are for developers running the local blockchain. 
 Main account address 
 SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO
 
@@ -31,8 +32,6 @@ SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3Q
 
 Sample output in the text file
 A;key4852455010992561212281862281822354423979131195229196811161481912253185841992247;SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;197;0;A;key4852455010992561212281862281822354423979131195229196811161481912253185841992247;SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;10000;230;1;
-
-
 */
 pub mod blockchain;
 pub mod dir_iterator;
@@ -109,7 +108,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let mut temp: Vec<String> = Vec::new();
     
     // the status is used to indicate success or failure of the function 
-    let status_get_clean_params = get_clean_call_params(&mut temp);
+    let status_get_clean_params = internal_get_clean_call_params(&mut temp);
 
     // if the address is not valid, immediately fail
     if status_get_clean_params == 1 {
@@ -152,7 +151,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let mut decoded_address: Vec<u8> = Vec::new();
 
     // converts the string address into a Vec<u8>
-    let status_decode_address: u8 = decode_address_string_to_u8(address, &mut decoded_address);
+    let status_decode_address: u8 = internal_decode_address_string_to_u8(address, &mut decoded_address);
 
     // if the address is not valid, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -170,7 +169,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let mut message_in_bytes: Vec<u8> = Vec::new();
 
     // converts the message from String into Vec<u8> and attaches the type of mosaic we are transferring 
-    let status_decode_message: u8 = decode_message_to_u8(message, &mut message_in_bytes, 0 );
+    let status_decode_message: u8 = internal_decode_message_to_u8(message, &mut message_in_bytes, 0 );
 
     // PENDING
     if status_decode_message == 1{
@@ -187,7 +186,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let mut mosaic_in_bytes = vec![0; 8];
 
     // changes the amount of mosaic from String to Vec<u8>
-    let status_decode_mosaic_amount = decode_mosaic_amount_to_u8(mosaic, &mut mosaic_in_bytes);
+    let status_decode_mosaic_amount = internal_decode_mosaic_amount_to_u8(mosaic, &mut mosaic_in_bytes);
 
     // PENDING
     if status_decode_mosaic_amount == 1{
@@ -207,7 +206,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     combined_bytes.extend_from_slice(&mosaic_in_bytes);
 
     // create the aggregate transaction
-    let status_create_transaction = create_aggregate_transaction(1, combined_bytes, 16724, 3);
+    let status_create_transaction = internal_create_aggregate_transaction(1, combined_bytes, 16724, 3);
 
     // PENDING
     // the status is used to indicate success or failure of the function 
@@ -230,7 +229,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let mut caller_public_key_vector_string: Vec<String> = Vec::new();
 
     // convert the u8 public key to a string to use as a key
-    let status_convert_public_key_to_string = convert_vector_u8_to_string(caller_public_key_vector_u8, &mut 
+    let status_convert_public_key_to_string = internal_convert_vector_u8_to_vector_string(caller_public_key_vector_u8, &mut 
     caller_public_key_vector_string);
 
     // PENDING, want to use panic!(); or return 1;?
@@ -259,7 +258,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let mut data: Vec<String> = Vec::new();
 
     // read the file
-    let status_file_read = file_read("StakingSupercontractClientInformation.txt", &mut data);
+    let status_file_read = internal_file_read("StakingSupercontractClientInformation.txt", &mut data);
 
     // PENDING
     if status_file_read == 1{
@@ -267,7 +266,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     }
 
     // appends the contents of the original file with the desired contents
-    let status_append_existing = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut data, &mut input_array);
+    let status_append_existing = internal_file_append_with_existing("StakingSupercontractClientInformation.txt", &mut data, &mut input_array);
 
     // PENDING
     if status_append_existing == 1 {
@@ -308,7 +307,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // temp holds the cleaned up get_call_params
     let mut temp: Vec<String> = Vec::new();
     
-    let status_get_clean_params = get_clean_call_params(&mut temp);
+    let status_get_clean_params = internal_get_clean_call_params(&mut temp);
 
     // if the address is not valid, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -355,7 +354,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let mut caller_public_key_vector_string: Vec<String> = Vec::new();
 
     // convert the public key to a string to use as a key
-    let status_convert_public_key_to_string = convert_vector_u8_to_string(caller_public_key_vector_u8, &mut 
+    let status_convert_public_key_to_string = internal_convert_vector_u8_to_vector_string(caller_public_key_vector_u8, &mut 
     caller_public_key_vector_string);
 
     // PENDING, want to use panic!(); or return 1;?
@@ -391,7 +390,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let number_of_data_per_client = 8;
 
     // read the contents of the file and convert them into a Vector of String
-    let read_status = file_read("StakingSupercontractClientInformation.txt", &mut data);
+    let read_status = internal_file_read("StakingSupercontractClientInformation.txt", &mut data);
 
     // if the file dosent exist, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -407,7 +406,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let target = format!("key{}",caller_public_key);
 
     // to search for the data 
-    let linear_search_status = linear_search(&mut data, &target , number_of_data_per_client,&mut read_buffer, &mut result, &mut number_of_targets);
+    let linear_search_status = internal_linear_search(&mut data, &target , number_of_data_per_client,&mut read_buffer, &mut result, &mut number_of_targets);
 
     // if the key is not valid, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -491,25 +490,6 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // get the withrawal status 
     let mut read_potential_withdrawal_status =  "".to_string();
 
-
-
-
-
-
-
-    // write the issue into a file
-    // creates file
-    {
-        let mut file = FileWriter::new("test.txt").unwrap();
-
-        file.flush().unwrap();
-    }
-
-
-
-
-
-
     // loop through 
     for x in 0..number_of_deposits{
 
@@ -554,52 +534,6 @@ pub unsafe extern "C" fn withdraw() -> u32 {
             Ok(integer) => integer,
             Err(_) => return 99,
         };
-
-
-
-
-
-
-
-
-
-        /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
-        
-        // MODIFY
-        // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
-        // extra character , caller public key to act as a key for linear search , the sender's address so that can auto send mosaic back when withdrawing , receiver's address so that can send to an account , a message , what type of mosaic are we sending? , the current block height which will be used for withdrawal check 
-        let string_to_save = format!("call_param_withdrawal_amount_u64: {} | retrieved_amount_u64: {} call_param_withdrawal_amount_u64 == retrieved_amount_u64 ? {:?} ", call_param_withdrawal_amount_u64,retrieved_amount_u64, call_param_withdrawal_amount_u64 == retrieved_amount_u64 );
-
-        // store the string inside an array of len 1
-        let mut input_array = vec![string_to_save];
-
-        // store the contents of the file here
-        let mut data: Vec<String> = Vec::new();
-
-        // read the file
-        let status_file_read = file_read("test.txt", &mut data);
-
-        // PENDING
-        if status_file_read == 1{
-        return 1;
-        }
-
-        // appends the contents of the original file with the desired contents
-        let status_append_existing = file_append_with_existing("test.txt", &mut data, &mut input_array);
-
-        // PENDING
-        if status_append_existing == 1 {
-        return 1;
-        }
-
-        /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
-
-
-
-
-
-
-
 
 
         // PENDING
@@ -791,47 +725,6 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     /////////////////////// find the intended withdrawal ends ///////////////////////
 
 
-
-
-
-
-    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
-        
-    // MODIFY
-    // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
-    // extra character , caller public key to act as a key for linear search , the sender's address so that can auto send mosaic back when withdrawing , receiver's address so that can send to an account , a message , what type of mosaic are we sending? , the current block height which will be used for withdrawal check 
-    let string_to_save = format!("chosen_withdraw_data: {:?} | potential_withdraw_data: {:?}  ", chosen_withdraw_data ,  potential_withdraw_data );
-
-    // store the string inside an array of len 1
-    let mut input_array = vec![string_to_save];
-
-    // store the contents of the file here
-    let mut data: Vec<String> = Vec::new();
-
-    // read the file
-    let status_file_read = file_read("test.txt", &mut data);
-
-    // PENDING
-    if status_file_read == 1{
-    return 1;
-    }
-
-    // appends the contents of the original file with the desired contents
-    let status_append_existing = file_append_with_existing("test.txt", &mut data, &mut input_array);
-
-    // PENDING
-    if status_append_existing == 1 {
-    return 1;
-    }
-
-    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
-
-
-
-
-
-
-
     
     /////////////////////// transaction creation process starts ///////////////////////
 
@@ -848,7 +741,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         let mut decoded_address: Vec<u8> = Vec::new();
 
         // stores the status of the conversion
-        let status_decode_address: u8 = decode_address_string_to_u8(send_address, &mut decoded_address);
+        let status_decode_address: u8 = internal_decode_address_string_to_u8(send_address, &mut decoded_address);
 
         // if the address is not valid, immediately fail
         // PENDING, want to use panic!(); or return 1;?
@@ -866,7 +759,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         let mut message_in_bytes: Vec<u8> = Vec::new();
 
         // stores the status of the conversion
-        let status_decode_message: u8 = decode_message_to_u8(&read_message, &mut message_in_bytes, 0 );
+        let status_decode_message: u8 = internal_decode_message_to_u8(&read_message, &mut message_in_bytes, 0 );
 
         // PENDING
         if status_decode_message == 1{
@@ -887,7 +780,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         let mut rewarded_mosaic_in_string = String::from("");
 
         // get the clean amount of mosaic which is in String
-        let status_get_clean_rewards = get_clean_rewards(&mosaic, &mut rewarded_mosaic_in_string);
+        let status_get_clean_rewards = internal_get_clean_rewards(&mosaic, &mut rewarded_mosaic_in_string);
 
         if status_get_clean_rewards == 1{
             
@@ -899,7 +792,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         let rewarded_mosaic_in_str: &str = rewarded_mosaic_in_string.as_str();
 
         // converts the string into a &[u8] 
-        let status_decode_mosaic_amount = decode_mosaic_amount_to_u8(rewarded_mosaic_in_str, &mut mosaic_in_bytes);
+        let status_decode_mosaic_amount = internal_decode_mosaic_amount_to_u8(rewarded_mosaic_in_str, &mut mosaic_in_bytes);
 
         // PENDING
         if status_decode_mosaic_amount == 1{
@@ -918,7 +811,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         combined_bytes.extend_from_slice(&message_in_bytes);
         combined_bytes.extend_from_slice(&mosaic_in_bytes);
 
-        let status_create_transaction = create_aggregate_transaction(1, combined_bytes, 16724, 3);
+        let status_create_transaction = internal_create_aggregate_transaction(1, combined_bytes, 16724, 3);
 
         // PENDING
         if status_create_transaction == 1{
@@ -949,14 +842,14 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         // their status updated
 
         // stores the status of the append
-        let status_file_append = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut read_buffer, &mut potential_withdraw_data);
+        let status_file_append = internal_file_append_with_existing("StakingSupercontractClientInformation.txt", &mut read_buffer, &mut potential_withdraw_data);
 
         // PENDING
         if status_file_append == 1 {
             return 1;
         }
         /////////////////////// status update ends ///////////////////////
-
+        
         return 0;
     } else {
         return 99;
@@ -971,25 +864,25 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 /// 
 /// # Parameters
 /// - string_to_decodessage: the message in string
-/// - decoded_address: the array that will contain the mosaic in ASCII 
+/// - out_decoded_address: the array that will contain the mosaic in ASCII 
 /// 
 /// # Examples
 /// ```
 /// // this is the array that will store the address in bytes
 /// let address = "SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA";
-/// let mut decoded_address: Vec<u8> = Vec::new();
-/// let status_decode_address: u8 = decode_address_string_to_u8(address, &mut decoded_address);
+/// let mut out_decoded_address: Vec<u8> = Vec::new();
+/// let status_decode_address: u8 = internal_decode_address_string_to_u8(address, &mut out_decoded_address);
 /// ```
 /// 
 /// # Notes
 #[no_mangle]
-fn decode_address_string_to_u8( string_to_decode:&str, decoded_address:&mut Vec<u8> ) -> u8 {
+fn internal_decode_address_string_to_u8( in_string_to_decode:&str, out_decoded_address:&mut Vec<u8> ) -> u8 {
     // needs to return the result / status of this function
     let mut status: u8 = 0;
     
     // this is because the transaction only allows base 32
     // Your Base32 encoded string
-    let encoded_address: &str = string_to_decode;
+    let encoded_address: &str = in_string_to_decode;
 
     // Define the Base32 alphabet as a static array
     // this is an encoding method
@@ -1025,7 +918,7 @@ fn decode_address_string_to_u8( string_to_decode:&str, decoded_address:&mut Vec<
 
                     // shift the bits to the right 
                     // then append / add them to the decoded address
-                    decoded_address.push((bits >> (bit_count - 8)) as u8);
+                    out_decoded_address.push((bits >> (bit_count - 8)) as u8);
                     bit_count -= 8;
                 }
             }
@@ -1038,7 +931,7 @@ fn decode_address_string_to_u8( string_to_decode:&str, decoded_address:&mut Vec<
 
     // If there are any remaining bits, add them to the result
     if bit_count > 0 {
-        decoded_address.push((bits >> (bit_count - 8)) as u8);
+        out_decoded_address.push((bits >> (bit_count - 8)) as u8);
     }
 
     return status;
@@ -1049,23 +942,23 @@ fn decode_address_string_to_u8( string_to_decode:&str, decoded_address:&mut Vec<
 /// This function is used to decode a string to a vector of ASCII characters of the string which contain the message
 /// 
 /// # Parameters
-/// - message: the message in string
-/// - message_in_bytes: the array that will contain the mosaic in ASCII 
-/// - wanted_type_of_mosaic: the wanted type of mosaic
+/// - in_message: the message in string
+/// - out_message_in_bytes: the array that will contain the mosaic in ASCII 
+/// - in_wanted_type_of_mosaic: the wanted type of mosaic
 ///     - 0 = XPX = 246, 189, 22, 145, 161, 66, 251, 191
 /// 
 /// # Examples
 /// ```
 /// // this is the array that will store the message in bytes
-/// let message = "hi there";
-/// let mut message_in_bytes: Vec<u8> = Vec::new();
-/// let status_decode_message: u8 = decode_message_to_u8(message, &mut message_in_bytes, 0 );
+/// let in_message = "hi there";
+/// let mut out_message_in_bytes: Vec<u8> = Vec::new();
+/// let status_decode_message: u8 = internal_decode_message_to_u8(in_message, &mut out_message_in_bytes, 0 );
 /// ```
 /// 
 /// # Notes 
 /// - In the future, if there are more types of mosaic, add them here
 #[no_mangle]
-fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_type_of_mosaic: u8 ) -> u8{
+fn internal_decode_message_to_u8( in_message: &str, out_message_in_bytes: &mut Vec<u8> , in_wanted_type_of_mosaic: u8 ) -> u8{
     // needs to return the result / status of this function
     let mut status = 0;
 
@@ -1073,26 +966,26 @@ fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_
     // .chars() is an iterator 
     // .map() converts the elements to u8 
     // .collect() collects all the converted data and puts into the array 
-    let result: Vec<u8> = message.chars().map(|c| c as u8).collect();
+    let result: Vec<u8> = in_message.chars().map(|c| c as u8).collect();
 
-    let custom_byte: u8 = message.len() as u8 + 1;
+    let custom_byte: u8 = in_message.len() as u8 + 1;
 
     // this indicates how long the message is
     let values_to_append_at_start: Vec<u8> = vec![custom_byte, 0, 1, 0];
 
     // .extend(), appends / adds another array to the current array
     // merge the initial values to append to the start which are in u8 type
-    message_in_bytes.extend(values_to_append_at_start);
+    out_message_in_bytes.extend(values_to_append_at_start);
 
     // merge the message that is in u8
-    message_in_bytes.extend(result);
+    out_message_in_bytes.extend(result);
 
     // this variable stores the information about the type of mosaic
     let mut type_of_mosaic: Vec<u8> = Vec::new(); 
 
     // PENDING
     // add more types of mosaic here if needed
-    if  wanted_type_of_mosaic == 0 
+    if  in_wanted_type_of_mosaic == 0 
     {
         // Types of Mosaic (XPX, Storage, etc...)
         // this is a fixed encoding for mosaic
@@ -1101,7 +994,7 @@ fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_
     }
 
     // append / add the type at the end
-    message_in_bytes.extend(type_of_mosaic);
+    out_message_in_bytes.extend(type_of_mosaic);
 
     return status;
 }
@@ -1110,30 +1003,30 @@ fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_
 /// This function is used to decode a string to a vector of ASCII characters of the string which contain the amount of mosaic being transferred 
 /// 
 /// # Parameters
-/// - mosaic: the amount in string type
-/// - mosaic_in_bytes: the array that will contain the mosaic in ASCII 
+/// - in_mosaic: the amount in string type
+/// - out_mosaic_in_bytes: the array that will contain the mosaic in ASCII 
 /// 
 /// # Examples
 /// ```
 /// // this is the array that will store the mosaic in bytes
-/// let mosaic = "1000";
-/// let mut mosaic_in_bytes = vec![0; 8];
-/// let status_decode_mosaic_amount = decode_mosaic_amount_to_u8(mosaic, &mut mosaic_in_bytes);
+/// let in_mosaic = "1000";
+/// let mut out_mosaic_in_bytes = vec![0; 8];
+/// let status_decode_mosaic_amount = internal_decode_mosaic_amount_to_u8(in_mosaic, &mut out_mosaic_in_bytes);
 /// ```
 /// 
 /// # Notes 
 #[no_mangle]
-fn decode_mosaic_amount_to_u8( mosaic: &str, mosaic_in_bytes: &mut Vec<u8> ) -> u8
+fn internal_decode_mosaic_amount_to_u8( in_mosaic: &str, out_mosaic_in_bytes: &mut Vec<u8> ) -> u8
 {
     // needs to return the result / status of this function
     let mut status = 0;
 
     // Mosaic convert method
     // Convert the string to a u32 value
-    let value = mosaic.parse::<u32>().unwrap();
+    let value = in_mosaic.parse::<u32>().unwrap();
 
     // Convert the u32 value to a Vec<u8> with 8 bytes
-    mosaic_in_bytes[0..4].copy_from_slice(&value.to_le_bytes());
+    out_mosaic_in_bytes[0..4].copy_from_slice(&value.to_le_bytes());
 
     return status;
 }
@@ -1142,21 +1035,21 @@ fn decode_mosaic_amount_to_u8( mosaic: &str, mosaic_in_bytes: &mut Vec<u8> ) -> 
 /// this function is designed to create an aggregate transaction 
 /// 
 /// # Parameters
-/// - max_fee: The maximum fee for the supercontract
-/// - combined_bytes: The Vector array that will store the payload or data, this includes:
+/// - in_max_fee: The maximum fee for the supercontract
+/// - in_combined_bytes: The Vector array that will store the payload or data, this includes:
 ///     - address
 ///     - message
 ///     - type of mosaic
 ///     - amount of mosaic
-/// - entity_type: The type of transaction, for example:
+/// - in_entity_type: The type of transaction, for example:
 ///     - preparing a blockchain drive = 16738
-/// - version_number: The version number 
+/// - in_version_number: The version number 
 /// 
 /// # Example:
 /// ```
 /// // of course this Vector array needs to have proper bytes 
-/// let mut combined_bytes = vec![144u8, 65u8, 178u8, 115u8, 15u8, 45u8, 228u8, 48u8, 241u8, 30u8, 157u8, 229u8, 26u8, 140u8, 222u8, 158u8, 64u8, 229u8, 191u8, 92u8, 224u8, 33u8, 34u8, 110u8, 0u8, 12u8, 0u8, 1u8, 0u8, 72u8, 101u8, 114u8, 101u8, 32u8, 121u8, 111u8, 117u8, 32u8, 103u8, 111u8, 246u8, 189u8, 22u8, 145u8, 161u8, 66u8, 251u8, 191u8, 232u8, 3u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8]
-/// let status_create_transaction = create_aggregate_transaction(1, combined_bytes, 16724, 3);
+/// let mut in_combined_bytes = vec![144u8, 65u8, 178u8, 115u8, 15u8, 45u8, 228u8, 48u8, 241u8, 30u8, 157u8, 229u8, 26u8, 140u8, 222u8, 158u8, 64u8, 229u8, 191u8, 92u8, 224u8, 33u8, 34u8, 110u8, 0u8, 12u8, 0u8, 1u8, 0u8, 72u8, 101u8, 114u8, 101u8, 32u8, 121u8, 111u8, 117u8, 32u8, 103u8, 111u8, 246u8, 189u8, 22u8, 145u8, 161u8, 66u8, 251u8, 191u8, 232u8, 3u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8]
+/// let status_create_transaction = internal_create_aggregate_transaction(1, in_combined_bytes, 16724, 3);
 /// ``` 
 /// 
 /// # Notes
@@ -1164,21 +1057,21 @@ fn decode_mosaic_amount_to_u8( mosaic: &str, mosaic_in_bytes: &mut Vec<u8> ) -> 
 /// - Check if the deployment is correct, should consist of:
 ///     - mosaic ID and mosaic amount in the left table
 ///     - parameters if needed
-fn create_aggregate_transaction(  max_fee: u64 , combined_bytes: Vec<u8> , entity_type: u16 , version_number: u32 ) -> u8{
+fn internal_create_aggregate_transaction(  in_max_fee: u64 , in_combined_bytes: Vec<u8> , in_entity_type: u16 , in_version_number: u32 ) -> u8{
     // needs to return the result / status of this function
     let status: u8 = 0;
 
     let mut aggregate = AggregateTransaction::default();
-    aggregate.set_max_fee(max_fee);
+    aggregate.set_max_fee(in_max_fee);
 
     let mut embedded = EmbeddedTransaction::default();
 
     // this value is fixed, for transfer
     // mosaic: 16724
-    embedded.set_entity_type(entity_type); // Transfer Transaction
+    embedded.set_entity_type(in_entity_type); // Transfer Transaction
     
-    embedded.set_version(version_number);
-    embedded.set_payload(combined_bytes);
+    embedded.set_version(in_version_number);
+    embedded.set_payload(in_combined_bytes);
 
     aggregate.add_embedded_transaction(embedded);
     blockchain::set_transaction(&aggregate);
@@ -1199,7 +1092,7 @@ fn create_aggregate_transaction(  max_fee: u64 , combined_bytes: Vec<u8> , entit
 /// 4: append it to the return array
 /// 
 /// # Parameters
-/// - input_parts: the vector array that will store the clean data
+/// - out_call_params: the vector array that will store the clean data
 /// 
 /// # Examples
 /// ```
@@ -1207,19 +1100,19 @@ fn create_aggregate_transaction(  max_fee: u64 , combined_bytes: Vec<u8> , entit
 /// 
 /// let mut temp: Vec<String> = Vec::new();
 /// 
-/// let status_get_clean_params = get_clean_call_params(&mut temp);
+/// let status_get_clean_params = internal_get_clean_call_params(&mut temp);
 ///
 /// // to convert to pointers because rest of the code relies on &str not String
 /// // .iter() is to create an iterator so that can go through all of the items in the vectr
 /// // .map() is to convert the contents that is presented by the iterator
 /// // .collect() is to collect all the converted components
-/// let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
+/// let out_call_params: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
 /// ```
 /// 
 /// # Notes 
 /// - Any form of data sanitization for input is done here
 #[no_mangle]
-fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
+fn internal_get_clean_call_params( out_call_params: &mut Vec<String> ) -> u8
 {
     // needs to return the result / status of this function
     let mut status = 0;
@@ -1241,7 +1134,7 @@ fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
     let temp: Vec<String> = converted_u8_to_string.split(';').map(String::from).collect();
 
     // this is to add the result to the existing array
-    input_parts.extend(temp);
+    out_call_params.extend(temp);
 
     return status;
 }
@@ -1259,17 +1152,17 @@ fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
 /// 4: push the new amount in the return vector
 /// 
 /// # Parameters
-/// - mosaic: the amount in string type
-/// - rewarded_mosaic_in_string: the string that will hold the new amount of mosaic after interest in String data type
+/// - in_mosaic: the amount in string type
+/// - out_rewarded_mosaic_in_string: the string that will hold the new amount of mosaic after interest in String data type
 /// 
 /// # Examples
 /// ```
 /// // Tested outside of blockchain
 /// // EXPECTED: 1100
-/// let mosaic = "1000";
-/// let mut rewarded_mosaic_in_string = String::from("");
-/// get_clean_rewards(mosaic, &mut rewarded_mosaic_in_string);
-/// let rewarded_mosaic_in_str: &str = rewarded_mosaic_in_string.as_str();
+/// let in_mosaic = "1000";
+/// let mut out_rewarded_mosaic_in_string = String::from("");
+/// internal_get_clean_rewards(in_mosaic, &mut out_rewarded_mosaic_in_string);
+/// let rewarded_mosaic_in_str: &str = out_rewarded_mosaic_in_string.as_str();
 /// println!("{}",rewarded_mosaic_in_str);
 /// ```
 /// 
@@ -1278,13 +1171,13 @@ fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
 /// such as variable not living long enough.
 /// This function returns the status to ensure consistency
 #[no_mangle]
-fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> u8
+fn internal_get_clean_rewards( in_mosaic: &str, out_rewarded_mosaic_in_string: &mut String ) -> u8
 {
     // needs to return the result / status of this function
     let mut status = 0;
 
     // Convert the string to a u32 value
-    let mut value = mosaic.parse::<u32>().unwrap();
+    let mut value = in_mosaic.parse::<u32>().unwrap();
 
     // PENDING
     // add function here that will give precise number of how many XPX to give back
@@ -1292,11 +1185,11 @@ fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> 
 
     // removes all element in the collection just to make sure that there is no additional data infront that
     // may or may not harm the system
-    rewarded_mosaic_in_string.clear();
+    out_rewarded_mosaic_in_string.clear();
 
     // push in a reference to the string that has been converted,
     // why string? this is to keep the whole system as consistent as possible
-    rewarded_mosaic_in_string.push_str(&value.to_string());
+    out_rewarded_mosaic_in_string.push_str(&value.to_string());
 
     return status;
 }
@@ -1315,7 +1208,7 @@ fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> 
 /// 
 /// # Parameters
 /// - file_path: the file name with .txt
-/// - out: the Vector that will store the contents of the file
+/// - out_vector_string: the Vector that will store the contents of the file
 /// 
 /// # Examples
 /// ```
@@ -1333,11 +1226,11 @@ fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> 
 /// }
 /// 
 /// let mut data: Vec<String> = Vec::new();
-/// file_read("try.txt", &mut data);
+/// internal_file_read("try.txt", &mut data);
 /// ```
 /// 
 /// # Notes
-fn file_read( file_path:&str, out:&mut Vec<String> ) -> u8 
+fn internal_file_read( file_path:&str, out_vector_string:&mut Vec<String> ) -> u8 
 {
     // needs to return the result / status of this function
     let mut status = 0;
@@ -1359,7 +1252,7 @@ fn file_read( file_path:&str, out:&mut Vec<String> ) -> u8
     let mut data_parts = Vec::new();
 
     // this is the method that splits the string using a delimiter while including the delimiter
-    let status_split = string_spliter_terminator(file_content_in_string.to_string(), ";",&mut data_parts);
+    let status_split = internal_string_spliter_terminator(file_content_in_string.to_string(), ";",&mut data_parts);
 
     // PENDING
     if status_split == 1{
@@ -1367,7 +1260,7 @@ fn file_read( file_path:&str, out:&mut Vec<String> ) -> u8
     }
 
     // combine the data to the output array / vector
-    out.extend_from_slice(&data_parts);
+    out_vector_string.extend_from_slice(&data_parts);
 
     return status;
 }
@@ -1387,13 +1280,13 @@ fn file_read( file_path:&str, out:&mut Vec<String> ) -> u8
 /// 1.2.1: add them to the return original data return array
 /// 
 /// # Parameters
-/// - data_array: the contents from the file in Vec<String> 
-/// - target: the String we are looking for
-/// - number_of_data_per_client: how many words are there seperated by a delimiter, the number of words are for 1 client / customer inside the text file
+/// - in_data_vector_string: the contents from the file in Vec<String> 
+/// - in_target: the String we are looking for
+/// - in_number_of_data_per_client: how many words are there seperated by a delimiter, the number of words are for 1 client / customer inside the text file
 /// -- for example: 3 = A;key001,key008
-/// - read_buffer_modified: the output Vector that will store the contents of the file without the target inside of it
-/// - wanted_data: the target data
-/// - number_of_targets: the number of times the target appeared
+/// - out_modified_data_vector_string: the output Vector that will store the contents of the file without the in_target inside of it
+/// - out_target_vector_string: the in_target data
+/// - out_number_of_targets_vector_u8: the number of times the in_target appeared
 /// 
 /// # Examples
 /// ```
@@ -1413,38 +1306,38 @@ fn file_read( file_path:&str, out:&mut Vec<String> ) -> u8
 /// let mut result: Vec<String> = Vec::new();
 /// let mut data: Vec<String> = Vec::new();
 /// let mut read_buffer : Vec<String> = Vec::new();
-/// let mut number_of_targets : Vec<u8> = Vec::new();
-/// file_read("try.txt", &mut data);
-/// linear_search(&mut data, "key1", 3, &mut read_buffer, &mut result, &mut number_of_targets);
+/// let mut out_number_of_targets_vector_u8 : Vec<u8> = Vec::new();
+/// internal_file_read("try.txt", &mut data);
+/// internal_linear_search(&mut data, "key1", 3, &mut read_buffer, &mut result, &mut out_number_of_targets_vector_u8);
 /// 
 /// // OR
 /// 
 /// let data = vec!["A" , ";" , "key1388714119416524012310222157236205981062271959714114215349145660116225218158157769" , ";" , "SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB" , ";" , "SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA" , ";" , "Bye Bye money" , ";" , "1000" , ";" , "127" , ";" , "0" , ";" , "A", ";" , "key4852455010992561212281862281822354423979131195229196811161481912253185841992247" , ";" , "SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO" ,";", "SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA" , ";" , "Here you go" , ";" , "1000" , ";" , "118" , ";" , "1" , ";", "A" , ";" , "key1388714119416524012310222157236205981062271959714114215349145660116225218158157769" , ";" , "SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB" , ";" , "SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA" , ";" , "SAYONARA" , ";" , "1000" , ";" , "127" , ";" , "0" , ";"];
-/// let mut data_array : Vec<String> = Vec::new();
+/// let mut in_data_vector_string : Vec<String> = Vec::new();
 /// 
 /// for x in data{
-///    data_array.push(x.to_string());
+///    in_data_vector_string.push(x.to_string());
 /// }
 /// 
-/// let target = "key1388714119416524012310222157236205981062271959714114215349145660116225218158157769";
-/// let number_of_data_per_client = 8;
-/// let mut read_buffer_modified: Vec<String> = Vec::new();
-/// let mut wanted_data: Vec<String> = Vec::new();
-/// let mut number_of_targets: Vec<u8> = Vec::new();
+/// let in_target = "key1388714119416524012310222157236205981062271959714114215349145660116225218158157769";
+/// let in_number_of_data_per_client = 8;
+/// let mut out_modified_data_vector_string: Vec<String> = Vec::new();
+/// let mut out_target_vector_string: Vec<String> = Vec::new();
+/// let mut out_number_of_targets_vector_u8: Vec<u8> = Vec::new();
 /// 
-/// linear_search(&mut data_array, target, number_of_data_per_client, &mut read_buffer_modified, &mut wanted_data , &mut number_of_targets );
+/// internal_linear_search(&mut in_data_vector_string, in_target, in_number_of_data_per_client, &mut out_modified_data_vector_string, &mut out_target_vector_string , &mut out_number_of_targets_vector_u8 );
 /// 
 /// ```
 /// 
 /// # Notes
 /// - There could be issues caused by this function due to the indexing 
-fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_client:u8, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>, number_of_targets: &mut Vec<u8>) -> u8 {
+fn internal_linear_search( in_data_vector_string:&mut Vec<String>, in_target:&str, in_number_of_data_per_client:u8, out_modified_data_vector_string:&mut Vec<String>, out_target_vector_string:&mut Vec<String>, out_number_of_targets_vector_u8: &mut Vec<u8>) -> u8 {
 
     // needs to return the result / status of this function
-    // set 1 by default, will change to 0 if target is found
+    // set 1 by default, will change to 0 if in_target is found
     let mut status = 1;
 
-    // this is the variable that will store the number of times that the target appeared
+    // this is the variable that will store the number of times that the in_target appeared
     let mut number_of_targets_in_u8:u8 = 0;
 
     // MODIFY
@@ -1467,13 +1360,13 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
     let other_keys = "key";
 
     // to loop through every data
-    while counter < data_array.len() 
+    while counter < in_data_vector_string.len() 
     {
 
-        // if the data is the same as the target
-        if data_array[counter] == target
+        // if the data is the same as the in_target
+        if in_data_vector_string[counter] == in_target
         {
-            // means we found the target
+            // means we found the in_target
             status = 0;
 
             // this variable holds the data in String type
@@ -1486,26 +1379,26 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
             // if there is a change in the way the data is organised in the file, need to modify here accordingly
 
             // this is the counter used to extract the information
-            // -2 because of the extra character so lets say if we found the target at index 2
+            // -2 because of the extra character so lets say if we found the in_target at index 2
             // we want to start at the extra character, so ned to 2 - x = 0 -> x = 2 -> 2 - 2 = 0
             let mut word_index = counter as u8 - number_of_jumps;
 
             // this is seperated from the word index for more readability
             // this is because the number of repetitions can be done like this 
-            // number_of_data_per_client + counter 
+            // in_number_of_data_per_client + counter 
             let mut number_of_repetitions_now = 0;
 
             // loop though the entire data for 1 client
-            while number_of_repetitions_now < number_of_data_per_client {
+            while number_of_repetitions_now < in_number_of_data_per_client {
 
                 // obtains the data itself and pushes it into the vector
-                wanted_data_parts_in_string.push(data_array[word_index as usize].clone());
+                wanted_data_parts_in_string.push(in_data_vector_string[word_index as usize].clone());
                 
                 // need to append the ";" for consistency 
                 wanted_data_parts_in_string.push(";".to_string());
 
                 // MODIFY
-                // need to +2 here because the data_array has ";", so needs to skip over it
+                // need to +2 here because the in_data_vector_string has ";", so needs to skip over it
                 // increment the index
                 word_index += number_of_jumps;
 
@@ -1514,15 +1407,14 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
             }
 
             // put the data in
-            wanted_data.extend_from_slice(&wanted_data_parts_in_string);
+            out_target_vector_string.extend_from_slice(&wanted_data_parts_in_string);
 
             // increment the number of times the data appeared
             number_of_targets_in_u8 += 1;
             
         }
-
         // if its other keys 
-        else if data_array[counter].starts_with(other_keys)
+        else if in_data_vector_string[counter].starts_with(other_keys)
         {
             // this is the variable that will store the data of the other clients
             let mut read_buffer_temp :Vec<String> = Vec::new();
@@ -1534,12 +1426,12 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
             // keeps track of how many data per customer, we have added to the list
             let mut number_of_repetitions_now = 0;
 
-            // -1 because if lets say we have 7 words, we start from -1, so lets say we found the target at index 1,
+            // -1 because if lets say we have 7 words, we start from -1, so lets say we found the in_target at index 1,
             // it will be like this 0,1,2,3,4,5,6 ( inclusive )
-            while number_of_repetitions_now < number_of_data_per_client {
+            while number_of_repetitions_now < in_number_of_data_per_client {
 
                 // this is to push the data into the temp array
-                read_buffer_temp.push(data_array[word_index as usize].clone());
+                read_buffer_temp.push(in_data_vector_string[word_index as usize].clone());
                 
                 // need to append the ";" for consistency 
                 read_buffer_temp.push(";".to_string());
@@ -1553,7 +1445,7 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
             }
 
             // put the data in
-            read_buffer_modified.extend_from_slice(&read_buffer_temp);
+            out_modified_data_vector_string.extend_from_slice(&read_buffer_temp);
             
         }
         else
@@ -1563,11 +1455,11 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
         // if there is bug, here could be the issue
         // can increase the counter to reduce time complexity
         // increment the counter
-        counter += number_of_data_per_client as usize;
+        counter += in_number_of_data_per_client as usize;
     }
 
     // store the number of targets inside the array
-    number_of_targets.push(number_of_targets_in_u8);
+    out_number_of_targets_vector_u8.push(number_of_targets_in_u8);
 
     return status;
 
@@ -1585,7 +1477,7 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
 /// 3: write the new contents into the new file 
 /// 
 /// # Parameters
-/// - file_path: the file name with the .txt
+/// - text_file_name: the file name with the .txt
 /// - content: the String in the type Vec<u8> to put inside the file
 /// 
 /// # Examples
@@ -1605,12 +1497,12 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
 /// 
 /// // this is the text
 /// let temp = Vec::from("cool\n");
-/// file_append("try.txt", temp);
+/// internal_file_append("try.txt", temp);
 /// ```
 /// 
 /// # Notes
 #[no_mangle]
-fn file_append(file_path:&str , content: &String ) -> u32 {
+fn internal_file_append(text_file_name:&str , content: &String ) -> u32 {
     // needs to return the result / status of this function
     let mut status: u32 = 0;
     
@@ -1618,7 +1510,7 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
     let mut file_content = Vec::new();
     {
         // find the file
-        let mut file = FileReader::new(file_path).unwrap();
+        let mut file = FileReader::new(text_file_name).unwrap();
 
         // read everything in the file
         file.read_to_end(&mut file_content).unwrap();
@@ -1629,7 +1521,7 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
 
 	{
         // create a file
-		let mut file = FileWriter::new(file_path).unwrap();
+		let mut file = FileWriter::new(text_file_name).unwrap();
 
         // rewrite everything that existed already
         file.write(file_content_in_string.as_bytes()).unwrap();
@@ -1676,9 +1568,9 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
 /// 1.2.3.1: convert the temporary array into a string and push it into the output array,
 /// 
 /// # Parameters
-/// - input: the String that wants to be split
+/// - in_concatenated_string: the String that wants to be split
 /// - delimiter: the delimiter in &str type
-/// - output: the vector of String that will contain the list of Strings split into their respective
+/// - out_vector_string: the vector of String that will contain the list of Strings split into their respective
 /// 
 /// # Examples
 /// ```
@@ -1689,12 +1581,12 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
 /// let mut wanted_data: Vec<String>  = Vec::new();
 /// let mut target = "keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO";
 /// let number_of_data_per_client = 7;
-/// string_spliter_terminator("A;keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;329;0;A;keyAD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;2000;329;0;".to_string(), ";", &mut result);
+/// internal_string_spliter_terminator("A;keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;329;0;A;keyAD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;2000;329;0;".to_string(), ";", &mut result);
 /// println!("{:?}",result);
 /// ```
 /// 
 /// # Notes
-fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<String> ) -> u8 {
+fn internal_string_spliter_terminator(in_concatenated_string:String , delimiter:&str, out_vector_string:&mut Vec<String> ) -> u8 {
 
     let mut status = 0;
 
@@ -1703,7 +1595,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 
     // to make the iter variable peekable
     // peekable means to see the next element
-    let mut char_iter = input.chars().peekable();
+    let mut char_iter = in_concatenated_string.chars().peekable();
 
     // iterate over all the characters in the string
     while let Some( character ) = char_iter.next()
@@ -1724,10 +1616,10 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
             else if character.to_string() == delimiter
             {
                 // push the string
-                output.push( temp.iter().collect() );
+                out_vector_string.push( temp.iter().collect() );
 
                 // push the delimiter
-                output.push( delimiter.to_string().clone() );
+                out_vector_string.push( delimiter.to_string().clone() );
 
                 temp.clear();
             }
@@ -1745,7 +1637,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
                 temp.push( character ) ;
 
                 // push the last character in
-                output.push( temp.iter().collect() );
+                out_vector_string.push( temp.iter().collect() );
 
                 // clear the contents
                 temp.clear();
@@ -1754,7 +1646,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
             else if temp.len() != 0 && character.to_string() == delimiter
             {
                 // push the last character in
-                output.push( temp.iter().collect() );
+                out_vector_string.push( temp.iter().collect() );
 
                 // clear the contents
                 temp.clear();
@@ -1764,7 +1656,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
                 temp.push( character ) ;
 
                 // push the last character in
-                output.push( temp.iter().collect() );
+                out_vector_string.push( temp.iter().collect() );
 
                 // clear the contents
                 temp.clear();
@@ -1777,7 +1669,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
                 temp.push( character ) ;
 
                 // push the last character in
-                output.push( temp.iter().collect() );
+                out_vector_string.push( temp.iter().collect() );
 
                 // clear the contents
                 temp.clear();
@@ -1799,7 +1691,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 /// 3: write the contents in u8 to the file 
 /// 
 /// # Parameters
-/// - file_path: the file name with the .txt
+/// - text_file_name: the file name with the .txt
 /// - original_data: the original contents of the file
 /// - content: the data that wants to be appended
 /// 
@@ -1824,13 +1716,13 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 /// // store the contents of the file here
 /// let mut data: Vec<String> = Vec::new();
 /// // read the file
-/// let status_file_read = file_read("StakingSupercontractClientInformation.txt", &mut data);
+/// let status_file_read = internal_file_read("StakingSupercontractClientInformation.txt", &mut data);
 /// // PENDING
 /// if status_file_read == 1{
 ///     return 1;
 /// }
 /// // appends the contents of the original file with the desired contents
-/// let status_append_existing = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut data, &mut input_array);
+/// let status_append_existing = internal_file_append_with_existing("StakingSupercontractClientInformation.txt", &mut data, &mut input_array);
 /// // PENDING
 /// if status_append_existing == 1 {
 ///     return 1;
@@ -1839,13 +1731,13 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 /// 
 /// # Notes
 /// - If the write function in the sdk can accomodate append, this function is not needed
-fn file_append_with_existing( file_path:&str , original_data:&mut Vec<String>, content:&mut Vec<String> ) -> u32 {
+fn internal_file_append_with_existing( text_file_name:&str , original_data:&mut Vec<String>, content:&mut Vec<String> ) -> u32 {
     // needs to return the result / status of this function
     let mut status: u32 = 0;
 
 	{
         // create a file
-		let mut file = FileWriter::new(file_path).unwrap();
+		let mut file = FileWriter::new(text_file_name).unwrap();
 
         // rewrite everything that existed already
         // file.write(file_content_in_string.as_bytes()).unwrap();
@@ -1856,7 +1748,7 @@ fn file_append_with_existing( file_path:&str , original_data:&mut Vec<String>, c
         let mut temp_original = Vec::new();
         let mut temp_content = Vec::new();
 
-        let status_convert_original = convert_string_vector_to_u8_vector(original_data, &mut temp_original);
+        let status_convert_original = internal_convert_string_vector_to_u8_vector(original_data, &mut temp_original);
 
         // PENDING
         if status_convert_original == 1 {
@@ -1866,7 +1758,7 @@ fn file_append_with_existing( file_path:&str , original_data:&mut Vec<String>, c
         file.write(&temp_original).unwrap();
 
 
-        let status_convert_content = convert_string_vector_to_u8_vector(content, &mut temp_content);
+        let status_convert_content = internal_convert_string_vector_to_u8_vector(content, &mut temp_content);
 
         // PENDING
         if status_convert_content == 1 {
@@ -1906,7 +1798,7 @@ fn file_append_with_existing( file_path:&str , original_data:&mut Vec<String>, c
 /// // Expects the data to be converted to u8
 /// let mut result = "cool";
 /// let mut converted_target_u8 : Vec<u8> = Vec::new();
-/// let status_convert_vec_string_to_vec_u8_target = convert_string_vector_to_u8_vector(&mut result, &mut converted_target_u8);
+/// let status_convert_vec_string_to_vec_u8_target = internal_convert_string_vector_to_u8_vector(&mut result, &mut converted_target_u8);
 /// //PENDING
 /// if status_convert_vec_string_to_vec_u8_target == 1 {
 ///    return 1;
@@ -1914,7 +1806,7 @@ fn file_append_with_existing( file_path:&str , original_data:&mut Vec<String>, c
 /// ```
 /// 
 /// # Notes
-fn convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8_vector:&mut Vec<u8> ) -> u8{
+fn internal_convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8_vector:&mut Vec<u8> ) -> u8{
     let mut status = 0;
 
     let mut temp: Vec<u8> = in_string_vector.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
@@ -1935,8 +1827,8 @@ fn convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8
 /// 3: push the string to the output array 
 /// 
 /// # Parameters
-/// - input_vector_u8: the Vector of u8 that wants to be converted
-/// - output_string: the Vector of String that will store the converted version 
+/// - in_vector_u8: the Vector of u8 that wants to be converted
+/// - out_vector_string: the Vector of String that will store the converted version 
 /// 
 /// # Examples
 /// ```
@@ -1944,19 +1836,19 @@ fn convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8
 /// // Expected all the numbers to become 1 string
 /// let data = [4, 85, 245, 50, 109, 92, 56, 1, 21, 228, 186, 228, 182, 235, 44, 239, 79, 131, 195, 229, 196, 81, 116, 148, 191, 225, 31, 85, 84, 19, 92, 247];
 /// let mut result3 = Vec::new();
-/// let status = convert_vector_u8_to_string(data, &mut result3);
+/// let status = internal_convert_vector_u8_to_vector_string(data, &mut result3);
 /// ```
 /// 
 /// # Notes
 /// - the output parameter is a vector for consistency 
-fn convert_vector_u8_to_string( input_vector_u8: [u8;32] , output_string:&mut Vec<String> ) -> u8 {
+fn internal_convert_vector_u8_to_vector_string( in_vector_u8: [u8;32] , out_vector_string:&mut Vec<String> ) -> u8 {
     let mut status = 0;
 
     // this array will store the String 
     let mut converted_to_string: Vec<String> = Vec::new();
 
     // for every u8, convert them to string and add them to a temporary vector 
-    for x in input_vector_u8.iter(){
+    for x in in_vector_u8.iter(){
         converted_to_string.push(x.to_string());
     }
 
@@ -1964,7 +1856,7 @@ fn convert_vector_u8_to_string( input_vector_u8: [u8;32] , output_string:&mut Ve
     let mut temp = converted_to_string.concat();
 
     // push the content back to the array
-    output_string.push(temp);
+    out_vector_string.push(temp);
 
     return status;
 }
