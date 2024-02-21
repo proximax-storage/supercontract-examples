@@ -1,7 +1,7 @@
 /*
 File name: Game supercontract
-Version: 2
-Patch notes: withdraw function is working with new file management system
+Version: 2.1 
+Patch notes: refactored and commented version, standard deposit and withdraw 
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use, potential areas with bugs 
@@ -61,8 +61,8 @@ use std::vec;
 /// # Notes
 /// This is the function used in the function name, along with the assignee, file name, function name, parameters
 #[no_mangle]
-pub unsafe extern "C" fn run() -> u32 {
-
+pub unsafe extern "C" fn run() -> u32 
+{
     return 0;
 }
 
@@ -271,7 +271,6 @@ pub unsafe extern "C" fn deposit() -> u32 {
 
      
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
-    
     // MODIFY
     // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
     // extra character , caller public key to act as a key for linear search , the sender's address so that can auto send mosaic back when withdrawing , receiver's address so that can send to an account , a message , what type of mosaic are we sending? , the current block height which will be used for withdrawal check 
@@ -303,7 +302,6 @@ pub unsafe extern "C" fn deposit() -> u32 {
     if status_append_existing == 1 {
         return 1;
     }
-
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
     
     return 0;
@@ -358,8 +356,10 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let mut call_param_withdrawal_amount_u64: u64 = 0;
     
     // stores the withdrawal amount in string
-    let call_param_withdrawal_amount = input_parts[0].clone().to_string(); 
+    let call_param_withdrawal_amount = input_parts[0].to_string(); 
 
+    // checks if we can convert the following string into a int type
+    // eg: "hello" will fail , "1000" will pass
     match call_param_withdrawal_amount.parse::<u64>() 
     {
         Ok(temp) => 
@@ -371,8 +371,6 @@ pub unsafe extern "C" fn withdraw() -> u32 {
             return 1;
         }
     } 
-        
-    
     /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
 
 
@@ -440,57 +438,9 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     /////////////////////// find the file and read the contents of the file ends ///////////////////////  
     
 
-    /* 
-    /////////////////////// read and search for the supercontract caller starts ///////////////////////
-    // this Vector will store the information about the target
-    let mut result: Vec<String> = Vec::new();
-
-    // this Vector is used to store data that exist within the file to avoid re-reading and lower the time complexity 
-    let mut data: Vec<String> = Vec::new();
-
-    // this Vector is used to store the contents of the file which is in the data variable above, but without target data
-    let mut read_buffer : Vec<String> = Vec::new();
-
-    // this Vector stores the number of times the data appeared
-    let mut number_of_targets: Vec<u8> = Vec::new();
-
-    // MODIFY
-    // if the number changes
-    // this variable stores the number of data per client in the text file
-    // for example: A;2;harlow = 3 
-    let number_of_data_per_client = 8;
-
-    // read the contents of the file and convert them into a Vector of String
-    let read_status = internal_file_read("StakingSupercontractClientInformation.txt", &mut data);
-
-    // if the file dosent exist, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if read_status == 1 {
-
-        // can choose to also panic!();
-        return 1;
-    }
-
-    // MODIFY
-    // if the way the key is stored is changed, modify here
-    // to format how key will look like
-    let target = format!("key{}",caller_public_key);
-
-    // to search for the data 
-    let linear_search_status = internal_linear_search(&mut data, &target , number_of_data_per_client,&mut read_buffer, &mut result, &mut number_of_targets);
-
-    // if the key is not valid, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if linear_search_status == 1 {
-
-        // can choose to also panic!();
-        return 1;
-    }
-    /////////////////////// read and search for the supercontract caller ends ///////////////////////
-    */
-
     
     /////////////////////// find the intended withdrawal starts ///////////////////////
+    // The following variables are for the system to work properly
     // extract the number of deposits made
     let number_of_deposits = number_of_targets[0];
 
@@ -510,7 +460,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let current_block_height_i64: i64 = current_block_height as i64;
 
 
-
+    // the following variables are used to store information regarding the data that has been chosen
     let mut read_placeholder = "".to_string();
 
     // get the caller's public key
@@ -535,7 +485,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let mut withdrawal_status =  "".to_string();
 
 
-    // the following is for the potential deposit data
+    // the following variables is for the potential deposit data
     // why are they seperated? 
     // because we dont want the data to overlap
     let mut read_potential_placeholder = "".to_string();
@@ -561,7 +511,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // get the withrawal status 
     let mut read_potential_withdrawal_status =  "".to_string();
 
-    // loop through 
+    // loop through every single deposit in the file
     for x in 0..number_of_deposits{
 
         // MODIFY
@@ -613,8 +563,6 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         // we will only take the first data that matches
         if  call_param_withdrawal_amount_u64 == retrieved_amount_u64 && retrieved_status.as_str() == "0" && current_block_height_i64 >= retrieved_block_height_in_i64 && is_withdrawal == false
         {
-
-            
             // allow withdrawal
             is_withdrawal = true;
 
@@ -699,16 +647,9 @@ pub unsafe extern "C" fn withdraw() -> u32 {
             // push the selected data's placeholder
             chosen_withdraw_data.push(withdrawal_status.clone());
             chosen_withdraw_data.push(";".to_string());
-
-
-
-            // end the iteration if we found
-            // dont break, use this loop to add the other data
-            //break;
         }
         else 
         {
-            
             // MODIFY 
             // if the number of data here changed, please add here
             // UPDATE, can make here more robust
@@ -800,14 +741,12 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     /////////////////////// transaction creation process starts ///////////////////////
 
     // check if the condition has been met
-    if is_withdrawal == true { 
-        
+    if is_withdrawal == true 
+    { 
+        /////////////////////// address conversion to base 32 starts ///////////////////////
         // this variable converts the original sender's address to return the deposit
         let send_address = read_sender_address.as_str();
-        
 
-
-        /////////////////////// address conversion to base 32 starts ///////////////////////
         // this is the array that will store the information for the decoded address
         let mut decoded_address: Vec<u8> = Vec::new();
 
@@ -903,17 +842,8 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         // set the status to true
         chosen_withdraw_data[index_status] = "1".to_string();
 
-        // secondly merge the 2 arrays of deposit data
-        // merge into the potential, cause easier and faster
-        for y in 0..( number_of_data_per_client * 2 ) 
-        {
-            potential_withdraw_data.push( chosen_withdraw_data [ y as usize ].clone() );
-        }
-        // so at this point, the potential withdraw data vector has the data of all the deposit information with the last few being the one that has 
-        // their status updated
-
         // stores the status of the append
-        let status_file_append = internal_file_append_with_existing(&file_name, &mut read_buffer, &mut potential_withdraw_data);
+        let status_file_append = internal_file_append_with_existing(&file_name, &mut potential_withdraw_data, &mut chosen_withdraw_data);
 
         // PENDING
         if status_file_append == 1 {
@@ -922,7 +852,9 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         /////////////////////// status update ends ///////////////////////
         
         return 0;
-    } else {
+    } 
+    else 
+    {
         return 99;
     }
     ///////////////////////  transaction creation process ends ///////////////////////
