@@ -1,15 +1,12 @@
 /*
 File name: Staking supercontract
-Version: 1.3
-Patch notes: added linear search to withdrawal to allow multiple contract callers and 1 contract deployer
-
-PENDING: 
-1) dont know if should have additional condition to determine if the person has withrawn or not written into the file
-    1.1) i think need
+Version: 1.4.A
+Patch notes: changed withdrawal to return the money to the sender. There are 2 versions pls find PENDING
 
 Notes for other developers:
-- Please change all the parts with MODIFY 
-- PENDING means awaiting confirmation 
+- MODIFY, means for u to modify when want to use
+- PENDING, means awaiting confirmation 
+- UPDATE, means for future updates
 
 main account 
 SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO
@@ -112,25 +109,6 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let current_block_height = get_block_height() + 5;
     /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
     
-
-
-    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
-    // has the normal file write and save the height so that can be checked here to see if condition is fulfilled or not
-    // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
-    let string_to_save = format!("A;key{};{};{};{};{};0;", sender_address,address,message,mosaic,current_block_height);
-
-    // write the contents of this sender into the file
-    let status_append = append("StakingSupercontractClientInformation.txt", &string_to_save );
-
-    // if the address is not valid, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if status_append == 1 {
-
-        // can choose to also panic!();
-        return 1;
-    }
-    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
-    
     
 
     /////////////////////// address conversion to base 32 starts ///////////////////////
@@ -202,6 +180,24 @@ pub unsafe extern "C" fn deposit() -> u32 {
         }
     /////////////////////// transaction creation starts ///////////////////////
     
+
+    
+    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+    // has the normal file write and save the height so that can be checked here to see if condition is fulfilled or not
+    // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
+    let string_to_save = format!("A;key{};{};{};{};{};0;", sender_address,address,message,mosaic,current_block_height);
+
+    // write the contents of this sender into the file
+    let status_append = file_append("StakingSupercontractClientInformation.txt", &string_to_save );
+
+    // if the address is not valid, immediately fail
+    // PENDING, want to use panic!(); or return 1;?
+    if status_append == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
+    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
     
     return 0;
 }
@@ -265,7 +261,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     let mut read_buffer : Vec<String> = Vec::new();
 
     // read the contents of the file and convert them into a Vector of String
-    let read_status = read_from_file_to_string("StakingSupercontractClientInformation.txt", &mut data);
+    let read_status = file_read("StakingSupercontractClientInformation.txt", &mut data);
 
     // if the file dosent exist, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -293,6 +289,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
 
     /////////////////////// supercontract caller data extraction starts ///////////////////////
+    // UPDATE, can make here more robust
     // all the indexing must be 0,2,4..2n cause of the ";"
     // get placeholder / extra character
     let read_placeholder = result[0].clone();
@@ -336,11 +333,29 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // check if the condition has been met
     if current_block_height_i64 >= data_block_height_i64 && converted_withdrawal_status == 0{ 
 
+        // PENDING
+        
+        /* 
+        // which way do we want
+        // method 1, use the data stored inside the text file
+        let end_sender_address_index = read_sender_address.len();
+
+        // UPDATE
+        // this can be made more modular by using the function 
+        let start_sender_address_index = 3;
+        let send_address = &read_sender_address[start_sender_address_index..end_sender_address_index];
+        */
+
+        
+        // method 2, use the input from users
+        let send_address = input_sender_address;
+        
+
         /////////////////////// address conversion to base 32 starts ///////////////////////
         // this is the array that will store the information for the decoded address
         let mut decoded_address: Vec<u8> = Vec::new();
 
-        let status_decode_address: u8 = decode_address_string_to_u8(&read_receiver_address, &mut decoded_address);
+        let status_decode_address: u8 = decode_address_string_to_u8(send_address, &mut decoded_address);
 
         // if the address is not valid, immediately fail
         // PENDING, want to use panic!(); or return 1;?
@@ -573,6 +588,7 @@ fn decode_address_string_to_u8( string_to_decode:&str, decoded_address:&mut Vec<
 /// # Notes 
 #[no_mangle]
 fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_type_of_mosaic: u8 ) -> u8{
+    // needs to return the result / status of this function
     let mut status = 0;
 
     //Message convert method
@@ -625,6 +641,7 @@ fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_
 #[no_mangle]
 fn decode_mosaic_amount_to_u8( mosaic: &str, mosaic_in_bytes: &mut Vec<u8> ) -> u8
 {
+    // needs to return the result / status of this function
     let mut status = 0;
 
     // Mosaic convert method
@@ -664,6 +681,7 @@ fn decode_mosaic_amount_to_u8( mosaic: &str, mosaic_in_bytes: &mut Vec<u8> ) -> 
 ///     - mosaic ID and mosaic amount in the left table
 ///     - parameters if needed
 fn create_aggregate_transaction(  max_fee: u64 , combined_bytes: Vec<u8> , entity_type: u16 , version_number: u32 ) -> u8{
+    // needs to return the result / status of this function
     let status: u8 = 0;
 
     let mut aggregate = AggregateTransaction::default();
@@ -708,6 +726,7 @@ fn create_aggregate_transaction(  max_fee: u64 , combined_bytes: Vec<u8> , entit
 #[no_mangle]
 fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
 {
+    // needs to return the result / status of this function
     let mut status = 0;
 
     // gets the input in a Vec[u8] form
@@ -759,6 +778,7 @@ fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
 #[no_mangle]
 fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> u8
 {
+    // needs to return the result / status of this function
     let mut status = 0;
 
     // Convert the string to a u32 value
@@ -800,12 +820,12 @@ fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> 
 /// }
 /// 
 /// let mut data: Vec<String> = Vec::new();
-/// read_from_file_to_string("try.txt", &mut data);
+/// file_read("try.txt", &mut data);
 /// ```
 /// 
 /// # Notes
-fn read_from_file_to_string(file_path:&str, out:&mut Vec<String>) -> u8 {
-    
+fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
+    // needs to return the result / status of this function
     let mut status = 0;
 
     // basic read
@@ -854,14 +874,14 @@ fn read_from_file_to_string(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// let mut result: Vec<String> = Vec::new();
 /// let mut data: Vec<String> = Vec::new();
 /// let mut read_buffer : Vec<String> = Vec::new();
-/// read_from_file_to_string("try.txt", &mut data);
+/// file_read("try.txt", &mut data);
 /// linear_search(&mut data, "key1", &mut read_buffer, &mut result);
 /// ```
 /// 
 /// # Notes
 fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>) -> u8 {
-
-    // set 1 by degault, will change to 0 if target is found
+    // needs to return the result / status of this function
+    // set 1 by default, will change to 0 if target is found
     let mut status = 1;
 
     // while loop counter 
@@ -878,6 +898,7 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified
         // if the data is the same as the target
         if data_array[counter] == target
         {
+            // means we found the target
             status = 0;
 
             // this variable holds the data in String type
@@ -888,6 +909,8 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified
             // eg: a;key1,coo1,potato
             // needs to be +3 because it will exclude the last index means, if lets say we found key1 at index 0
             // it will be data_array[0..4] excluding item at index 4  
+
+            // UPDATE, can make here more robust
 
             // sammple data:
             // A;keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;329;0
@@ -933,6 +956,8 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified
             let mut read_buffer_temp :Vec<String> = Vec::new();
 
             
+            // UPDATE, can make here more robust
+
             // read_buffer_temp.extend_from_slice(&data_array[index-1..index+2] );
             read_buffer_temp.push(data_array[counter-1].clone());
             
@@ -1003,13 +1028,13 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified
 /// 
 /// // this is the text
 /// let temp = Vec::from("cool\n");
-/// append("try.txt", temp);
+/// file_append("try.txt", temp);
 /// ```
 /// 
 /// # Notes
 #[no_mangle]
-fn append(file_path:&str , content: &String ) -> u32 {
-
+fn file_append(file_path:&str , content: &String ) -> u32 {
+    // needs to return the result / status of this function
     let mut status: u32 = 0;
     
     // this variable stores the information from the reader
