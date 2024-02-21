@@ -1,35 +1,38 @@
 /*
 File name: Staking supercontract
-Version: 1.8
-Patch notes: can now handle multiple deposits made by the same person. Also fixed logic error, where can deposit earlier when there is multiple deposits
+Version: 1.9.D
+Patch notes: fixed issue where the deposit information chosen is incorrect. As in the status update is wrong. The issue lied in status update at the end of the witdrawal 
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use, potential areas with bugs 
 - PENDING, means awaiting confirmation 
 - UPDATE, means for future updates
 
-main account 
+Main account address 
 SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO
 
-second account address
+Second account address
 SD635GAAXIS6EHCEBLYDHJIRIHMMYAJMMMZH3YVC
 
-third account address
+Third account address
 SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB
 
-empty acount address 
+Empty acount address 
 SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA
 address of empty wallet; message( can be anything ); mosaic
 
-Use this for new staking supercontract with linear search 
-main account
-SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000
-third account
-SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Bye Bye money;1000
-forth account
-SBE7PCA4TVVM5NAN5RU7HJSTZ7PLJGSRIYH4IP3Q;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Ho Ho money go go;1000
+For local blockchain and accounts, use this in the parameters tab
 
-SDBS66UKIK667MCYE6UKQ4ZHTFZTJ6AMFB4ONTUA;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;XXXXXXXXXXXXXXXX;1000
+Main account's parameters
+SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000
+
+Third account's parameters
+SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Bye Bye money;1000
+
+Sample output in the text file
+A;key4852455010992561212281862281822354423979131195229196811161481912253185841992247;SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;197;0;A;key4852455010992561212281862281822354423979131195229196811161481912253185841992247;SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;10000;230;1;
+
+
 */
 pub mod blockchain;
 pub mod dir_iterator;
@@ -49,9 +52,13 @@ use std::vec;
 /// # Objective
 /// This function is used to deploy the supercontract onto the blockchain and write a file 
 /// 
+/// # Steps
+/// 0: contract deployer deploys contract with this function
+/// 
+/// 1: this functions runs and creates an empty file in the blockchain
+/// 
 /// # Notes
 /// This is the function used in the function name, along with the assignee, file name, function name, parameters
-/// 
 #[no_mangle]
 pub unsafe extern "C" fn run() -> u32 {
 
@@ -66,13 +73,31 @@ pub unsafe extern "C" fn run() -> u32 {
 }
 
 /// # Objective
-/// This function aims to send xpx to a seperate account as a deposit, so how this function works is such that, 
-/// B deploys file and supercontract to the blockchain using run()
-/// A calls the supercontract to deposit money 
-/// After a set time, A calls the supercontract again to withraw the deposit
+/// This function aims to send mosaic to a seperate account which will hold the mosaic as a deposit
+/// 
+/// # Steps
+/// 0.1: Account B ( contract deployer ) deployes the supercontract into the blockchain using the run function
+/// 
+/// 0.2: Account A ( client / user ) calls this supercontract using the contract key and uses this deposit function to send some mosaic to another account specified
+/// 
+/// 0.3: After a set amount of time, Account A ( client / user ) calls this supercontract using the contract key and uses the withdraw function to send mosaic back to Account A 
+/// 
+/// 1: obtain the parameters from the storage tool
+/// 
+/// 2: convert the address to base 32
+/// 
+/// 3: convert the message to base 32
+/// 
+/// 4: convert the mosaic to base 32
+/// 
+/// 5: create transaction 
+/// 
+/// 6: get caller public key 
+/// 
+/// 7: write information into a text file
 /// 
 /// # Notes 
-/// - Sometimes it does not work because of the absence of the mosaic type and amount on the left box when deploying,
+/// - Sometimes it does not work because of the absence of the mosaic type and amount on the left box when deploying ( service payment ),
 ///     - Therefore, re-deploy and fill in that information, for example: Mosaic ID = 992621222383397347
 /// - It could also be, because there is no parameter / incorrect parameter
 ///     - Therefore, re-deploy and fill in the correct parameter information
@@ -83,10 +108,10 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // temp holds the cleaned up get_call_params
     let mut temp: Vec<String> = Vec::new();
     
+    // the status is used to indicate success or failure of the function 
     let status_get_clean_params = get_clean_call_params(&mut temp);
 
     // if the address is not valid, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
     if status_get_clean_params == 1 {
 
         // can choose to also panic!();
@@ -111,13 +136,13 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // total mosaics to be send
     let mosaic = input_parts[3]; 
 
+    // MODIFY
     // this height is used to check condition for deposit return
-    // why +80? cause its only an estimation, 1 block takes approx 15seconds to build, 
+    // why +80? cause its only an estimation, 1 block takes approx 15 seconds to build, 
     // 1 block = 15s, required block heigh = wanted time taken/ needed before release of deposit
     // +80 is approx 5 mins, 15s * 80 , 
     // also lets say if we put 80, then best is to have the autorun run 80 times + 20
-    // MODIFY
-    let current_block_height = get_block_height() + 30;
+    let current_block_height = get_block_height() + 5;
     /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
     
     
@@ -185,6 +210,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let status_create_transaction = create_aggregate_transaction(1, combined_bytes, 16724, 3);
 
     // PENDING
+    // the status is used to indicate success or failure of the function 
     if status_create_transaction == 1{
 
         //panic!();
@@ -198,10 +224,12 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // get the caller public key
     let caller_public_key_vector_u8: [u8; 32] = get_caller_public_key();
 
+    // PENDING
+    // can use [u8;1] instead of vector type to ensure that it will only be one item 
     // this variable stores the data of the public key in an array with only one element
     let mut caller_public_key_vector_string: Vec<String> = Vec::new();
 
-    // convert the public key to a string to use as a key
+    // convert the u8 public key to a string to use as a key
     let status_convert_public_key_to_string = convert_vector_u8_to_string(caller_public_key_vector_u8, &mut 
     caller_public_key_vector_string);
 
@@ -221,8 +249,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
     // MODIFY
     // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
-    // has the normal file write and save the height so that can be checked here to see if condition is fulfilled or not
-    // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
+    // extra character , caller public key to act as a key for linear search , the sender's address so that can auto send mosaic back when withdrawing , receiver's address so that can send to an account , a message , what type of mosaic are we sending? , the current block height which will be used for withdrawal check 
     let string_to_save = format!("A;key{};{};{};{};{};{};0;", caller_public_key , sender_address , address , message , mosaic , current_block_height);
 
     // store the string inside an array of len 1
@@ -253,12 +280,27 @@ pub unsafe extern "C" fn deposit() -> u32 {
 }
 
 /// # Objective
-/// This function aims to send xpx to the account which deposited the money, so how this function works is such that, 
-/// B deploys file and supercontract to the blockchain using run()
-/// A calls the supercontract to deposit money 
-/// After a set time, A calls the supercontract again to withraw the deposit
+/// This function aims to send mosaic back to the account which deposited the money
+/// 
+/// /// # Steps
+/// 0.1: Account B ( contract deployer ) deployes the supercontract into the blockchain using the run function
+/// 
+/// 0.2: Account A ( client / user ) calls this supercontract using the contract key and uses this deposit function to send some mosaic to another account specified
+/// 
+/// 0.3: After a set amount of time, Account A ( client / user ) calls this supercontract using the contract key and uses the withdraw function to send mosaic back to Account A 
+/// 
+/// 1: obtain the parameters from the storage tool
+/// 
+/// 2: get caller public key
+/// 
+/// 3: search for the account's deposit information
+/// 
+/// 4: find the correct deposit which matches the parameter inputted, if there is no information that matches the parameter, the withdrawal is invalid 
+/// 
+/// 
 /// 
 /// # Notes 
+/// - if the key / someone who did not deposit the account calls withdraw, the contract should return a status of 1
 #[no_mangle]
 pub unsafe extern "C" fn withdraw() -> u32 {
 
@@ -281,9 +323,26 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // .map() is to convert the contents that is presented by the iterator
     // .collect() is to collect all the converted components
     let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
+
+    // this is the variable that will store the amount 
+    let mut call_param_withdrawal_amount_u64: u64 = 0;
     
-    // stores the withdrawal amount 
-    let call_param_withdrawal_amount = input_parts[0]; 
+    // stores the withdrawal amount in string
+    let call_param_withdrawal_amount = input_parts[0].clone().to_string(); 
+
+    match call_param_withdrawal_amount.parse::<u64>() 
+    {
+        Ok(temp) => 
+        {
+            call_param_withdrawal_amount_u64 = temp;
+        }
+        Err(e) => 
+        {
+            return 1;
+        }
+    } 
+        
+    
     /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
 
 
@@ -367,14 +426,25 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
     let mut is_withdrawal = false;
 
+    // this will be the vector that will store the information of the chosen deposit information
+    let mut chosen_withdraw_data: Vec<String> = Vec::new(); 
+
+    // this will be the vector that will store the information of the potential deposit informations
+    // in other words, the data that could have been chosen due to the matching keys 
+    let mut potential_withdraw_data: Vec<String> = Vec::new(); 
+
+    // get current block height
+    let current_block_height: u64 = get_block_height();
+
+    // convert to i64
+    let current_block_height_i64: i64 = current_block_height as i64;
+
 
 
     let mut read_placeholder = "".to_string();
 
-    let mut read_caller_public_key = "".to_string();
-
     // get the caller's public key
-    let mut read_sender_address =  "".to_string();
+    let mut read_caller_public_key = "".to_string();
 
     // get the sender's address 
     let mut read_sender_address =  "".to_string();
@@ -394,11 +464,51 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // get the withrawal status 
     let mut withdrawal_status =  "".to_string();
 
-    // get current block height
-    let current_block_height: u64 = get_block_height();
 
-    // convert to i64
-    let current_block_height_i64: i64 = current_block_height as i64;
+    // the following is for the potential deposit data
+    // why are they seperated? 
+    // because we dont want the data to overlap
+    let mut read_potential_placeholder = "".to_string();
+
+    // get the caller's public key
+    let mut read_potential_caller_public_key = "".to_string();
+
+    // get the sender's address 
+    let mut read_potential_sender_address =  "".to_string();
+
+    // get the receiver's address 
+    let mut read_potential_receiver_address =  "".to_string();
+
+    // get the message 
+    let mut read_potential_message =  "".to_string();
+
+    // get the mosaic from the text file
+    let mut read_potential_mosaic =  "".to_string();
+
+    // take the height
+    let mut read_potential_data_block_height =   "".to_string();
+
+    // get the withrawal status 
+    let mut read_potential_withdrawal_status =  "".to_string();
+
+
+
+
+
+
+
+    // write the issue into a file
+    // creates file
+    {
+        let mut file = FileWriter::new("test.txt").unwrap();
+
+        file.flush().unwrap();
+    }
+
+
+
+
+
 
     // loop through 
     for x in 0..number_of_deposits{
@@ -408,14 +518,36 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         // this is the variable that stores the index of the status
         // eg: 
         // iteration 0, index of status = 11 
+        // status
         let retrieved_status_index = (x * number_of_data_per_client * 2 ) + ( number_of_data_per_client  * 2 ) - ( 1 * 2 );
         let retrieved_status = &result[ retrieved_status_index as usize ];
 
+        // height
         let retrieved_height_index = (x * number_of_data_per_client * 2 ) + ( number_of_data_per_client  * 2 ) - ( 2 * 2 );
         let retrieved_height = &result[ retrieved_height_index as usize ];
 
+        // mosaic 
         let retrieved_amount_index = (x * number_of_data_per_client * 2 ) + ( number_of_data_per_client  * 2 ) - ( 3 * 2 );
-        let retrieved_amount = &result[ retrieved_amount_index as usize ];
+        let retrieved_amount_string = &result[ retrieved_amount_index as usize ];
+
+        // get the string 
+        let retrieved_amount_string_temp = retrieved_amount_string.clone();
+
+        // the variable that will store the mosaic from the file
+        let mut retrieved_amount_u64:u64 = 0;
+
+        // convert to u64
+        match retrieved_amount_string_temp.parse::<u64>()
+        {
+            Ok(retrieved_amount_string_success_temp) =>
+            {
+                retrieved_amount_u64 = retrieved_amount_string_success_temp;
+            }
+            Err(e) =>
+            {
+                return 1;
+            }
+        }
 
         // convert the height to int 
         let retrieved_block_height_in_i64: i64 = match retrieved_height.trim().parse() {
@@ -423,13 +555,58 @@ pub unsafe extern "C" fn withdraw() -> u32 {
             Err(_) => return 99,
         };
 
-        // PENDING CHANGE HERE START
-        // add code here to check the retrieved height and current height 
-        // PENDING CHANGE HERE ENDS
+
+
+
+
+
+
+
+
+        /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+        
+        // MODIFY
+        // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
+        // extra character , caller public key to act as a key for linear search , the sender's address so that can auto send mosaic back when withdrawing , receiver's address so that can send to an account , a message , what type of mosaic are we sending? , the current block height which will be used for withdrawal check 
+        let string_to_save = format!("call_param_withdrawal_amount_u64: {} | retrieved_amount_u64: {} call_param_withdrawal_amount_u64 == retrieved_amount_u64 ? {:?} ", call_param_withdrawal_amount_u64,retrieved_amount_u64, call_param_withdrawal_amount_u64 == retrieved_amount_u64 );
+
+        // store the string inside an array of len 1
+        let mut input_array = vec![string_to_save];
+
+        // store the contents of the file here
+        let mut data: Vec<String> = Vec::new();
+
+        // read the file
+        let status_file_read = file_read("test.txt", &mut data);
+
+        // PENDING
+        if status_file_read == 1{
+        return 1;
+        }
+
+        // appends the contents of the original file with the desired contents
+        let status_append_existing = file_append_with_existing("test.txt", &mut data, &mut input_array);
+
+        // PENDING
+        if status_append_existing == 1 {
+        return 1;
+        }
+
+        /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+
+
+
+
+
+
+
+
 
         // PENDING
         // MAYBE here will have issues due to conversion types
-        if  call_param_withdrawal_amount == retrieved_amount.as_str() && retrieved_status.as_str() == "0" && current_block_height_i64 >= retrieved_block_height_in_i64
+        // MAYBE here will have issues when a person who did not deposit calls the function
+        // we will only take the first data that matches
+        if  call_param_withdrawal_amount_u64 == retrieved_amount_u64 && retrieved_status.as_str() == "0" && current_block_height_i64 >= retrieved_block_height_in_i64 && is_withdrawal == false
         {
 
             
@@ -444,75 +621,233 @@ pub unsafe extern "C" fn withdraw() -> u32 {
             let read_placeholder_index = (x * number_of_data_per_client * 2 ) + ( 0 * 2 );
             read_placeholder = result[read_placeholder_index as usize ].clone();
 
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(read_placeholder.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
+
             // get the caller's public key
             let read_caller_public_key_index = (x * number_of_data_per_client * 2 ) + ( 1 * 2 );
             read_caller_public_key = result[read_caller_public_key_index as usize ].clone();
+
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(read_caller_public_key.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
 
             // get the sender's address 
             let read_sender_address_index = (x * number_of_data_per_client * 2 ) + ( 2 * 2 );
             read_sender_address = result[read_sender_address_index as usize ].clone();
 
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(read_sender_address.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
+
             // get the receiver's address 
             let read_receiver_address_index = (x * number_of_data_per_client * 2 ) + ( 3 * 2 );
             read_receiver_address = result[read_receiver_address_index as usize ].clone();
+
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(read_receiver_address.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
 
             // get the message 
             let read_message_index = (x * number_of_data_per_client * 2 ) + ( 4 * 2 );
             read_message = result[read_message_index as usize ].clone();
 
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(read_message.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
+
             // get the mosaic from the text file
             let mosaic_index = (x * number_of_data_per_client * 2 ) + ( 5 * 2 );
             mosaic = result[mosaic_index as usize ].clone();
+
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(mosaic.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
 
             // take the height
             let data_block_height_index = (x * number_of_data_per_client * 2 ) + ( 6 * 2 );
             data_block_height = result[data_block_height_index as usize ].clone();
 
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(data_block_height.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
+
             // get the withrawal status 
             let withdrawal_status_index = (x * number_of_data_per_client * 2 ) + ( 7 * 2 );
             withdrawal_status = result[withdrawal_status_index as usize ].clone();
+
+            // push the selected data's placeholder
+            chosen_withdraw_data.push(withdrawal_status.clone());
+            chosen_withdraw_data.push(";".to_string());
+
+
+
+            // end the iteration if we found
+            // dont break, use this loop to add the other data
+            //break;
+        }
+        else 
+        {
+            
+            // MODIFY 
+            // if the number of data here changed, please add here
+            // UPDATE, can make here more robust
+            // all the indexing must be 0,2,4..2n cause of the ";"
+            // get placeholder / extra character
+            let read_potential_placeholder_index = (x * number_of_data_per_client * 2 ) + ( 0 * 2 );
+            read_potential_placeholder = result[read_potential_placeholder_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_placeholder.clone());
+            potential_withdraw_data.push(";".to_string());
+
+
+
+            // get the caller's public key
+            let read_potential_caller_public_key_index = (x * number_of_data_per_client * 2 ) + ( 1 * 2 );
+            read_potential_caller_public_key = result[read_potential_caller_public_key_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_caller_public_key.clone());
+            potential_withdraw_data.push(";".to_string());
+
+
+
+            // get the sender's address 
+            let read_potential_sender_address_index = (x * number_of_data_per_client * 2 ) + ( 2 * 2 );
+            read_potential_sender_address = result[read_potential_sender_address_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_sender_address.clone());
+            potential_withdraw_data.push(";".to_string());
+
+
+
+            // get the receiver's address 
+            let read_potential_receiver_address_index = (x * number_of_data_per_client * 2 ) + ( 3 * 2 );
+            read_potential_receiver_address = result[read_potential_receiver_address_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_receiver_address.clone());
+            potential_withdraw_data.push(";".to_string());
+
+
+
+            // get the message 
+            let read_potential_message_index = (x * number_of_data_per_client * 2 ) + ( 4 * 2 );
+            read_potential_message = result[read_potential_message_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_message.clone());
+            potential_withdraw_data.push(";".to_string());
+
+
+
+            // get the mosaic from the text file
+            let read_potential_mosaic_index = (x * number_of_data_per_client * 2 ) + ( 5 * 2 );
+            read_potential_mosaic = result[read_potential_mosaic_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_mosaic.clone());
+            potential_withdraw_data.push(";".to_string());
+
+
+
+            // take the height
+            let read_potential_data_block_height_index = (x * number_of_data_per_client * 2 ) + ( 6 * 2 );
+            read_potential_data_block_height = result[read_potential_data_block_height_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_data_block_height.clone());
+            potential_withdraw_data.push(";".to_string());
+
+
+
+            // get the withrawal status 
+            let read_potential_withdrawal_status_index = (x * number_of_data_per_client * 2 ) + ( 7 * 2 );
+            read_potential_withdrawal_status = result[read_potential_withdrawal_status_index as usize ].clone();
+
+            // push the selected data's placeholder
+            potential_withdraw_data.push(read_potential_withdrawal_status.clone());
+            potential_withdraw_data.push(";".to_string());
         }
     }
 
     /////////////////////// find the intended withdrawal ends ///////////////////////
 
-    
-    /* 
-    /////////////////////// supercontract caller data extraction starts ///////////////////////
-    // convert the height allowed to withdraw to i64
-    let data_block_height_i64: i64 = match data_block_height.trim().parse() {
-        Ok(integer) => integer,
-        Err(_) => return 99,
-    };
-    /////////////////////// supercontract caller data extraction ends ///////////////////////
-    
-    */
+
+
+
+
+
+    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+        
+    // MODIFY
+    // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
+    // extra character , caller public key to act as a key for linear search , the sender's address so that can auto send mosaic back when withdrawing , receiver's address so that can send to an account , a message , what type of mosaic are we sending? , the current block height which will be used for withdrawal check 
+    let string_to_save = format!("chosen_withdraw_data: {:?} | potential_withdraw_data: {:?}  ", chosen_withdraw_data ,  potential_withdraw_data );
+
+    // store the string inside an array of len 1
+    let mut input_array = vec![string_to_save];
+
+    // store the contents of the file here
+    let mut data: Vec<String> = Vec::new();
+
+    // read the file
+    let status_file_read = file_read("test.txt", &mut data);
+
+    // PENDING
+    if status_file_read == 1{
+    return 1;
+    }
+
+    // appends the contents of the original file with the desired contents
+    let status_append_existing = file_append_with_existing("test.txt", &mut data, &mut input_array);
+
+    // PENDING
+    if status_append_existing == 1 {
+    return 1;
+    }
+
+    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+
+
+
+
+
+
 
     
-    /////////////////////// transaction starts ///////////////////////
-    
-    /* 
-    // PENDING CHANGE HERE START
-    // get current block height
-    let current_block_height: u64 = get_block_height();
-    
-    // convert to i64
-    let current_block_height_i64: i64 = current_block_height as i64;
-    */
+    /////////////////////// transaction creation process starts ///////////////////////
 
     // check if the condition has been met
     if is_withdrawal == true { 
-
-    // PENDING CHANGE HERE ENDS
         
-        // method 2, use the input from users
+        // this variable converts the original sender's address to return the deposit
         let send_address = read_sender_address.as_str();
         
+
 
         /////////////////////// address conversion to base 32 starts ///////////////////////
         // this is the array that will store the information for the decoded address
         let mut decoded_address: Vec<u8> = Vec::new();
 
+        // stores the status of the conversion
         let status_decode_address: u8 = decode_address_string_to_u8(send_address, &mut decoded_address);
 
         // if the address is not valid, immediately fail
@@ -529,13 +864,15 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         /////////////////////// message conversion to base 32 starts ///////////////////////
         // this is the array that will store the message in bytes
         let mut message_in_bytes: Vec<u8> = Vec::new();
+
+        // stores the status of the conversion
         let status_decode_message: u8 = decode_message_to_u8(&read_message, &mut message_in_bytes, 0 );
 
         // PENDING
         if status_decode_message == 1{
 
-        //panic!();
-        return 1;
+            //panic!();
+            return 1;
         }
         /////////////////////// message conversion to base 32 ends ///////////////////////
         
@@ -594,15 +931,25 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         
 
         /////////////////////// status update starts ///////////////////////
+        // firstly change the status of the chosen deposit data
         // change the withdrawal status to true
         // -2 because -1 is the ";"
-        let mut index_status = result.len()-2;
+        let mut index_status = chosen_withdraw_data.len()-2;
 
         // set the status to true
-        result[index_status] = "1".to_string();
+        chosen_withdraw_data[index_status] = "1".to_string();
 
-       
-        let status_file_append = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut read_buffer, &mut result);
+        // secondly merge the 2 arrays of deposit data
+        // merge into the potential, cause easier and faster
+        for y in 0..( number_of_data_per_client * 2 ) 
+        {
+            potential_withdraw_data.push( chosen_withdraw_data [ y as usize ].clone() );
+        }
+        // so at this point, the potential withdraw data vector has the data of all the deposit information with the last few being the one that has 
+        // their status updated
+
+        // stores the status of the append
+        let status_file_append = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut read_buffer, &mut potential_withdraw_data);
 
         // PENDING
         if status_file_append == 1 {
@@ -614,7 +961,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     } else {
         return 99;
     }
-    /////////////////////// transaction ends ///////////////////////
+    ///////////////////////  transaction creation process ends ///////////////////////
 
     
 }
@@ -623,7 +970,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 /// This function is used to decode a string to a vector of ASCII characters of the string which contain the address
 /// 
 /// # Parameters
-/// - mestring_to_decodessage: the message in string
+/// - string_to_decodessage: the message in string
 /// - decoded_address: the array that will contain the mosaic in ASCII 
 /// 
 /// # Examples
@@ -716,12 +1063,13 @@ fn decode_address_string_to_u8( string_to_decode:&str, decoded_address:&mut Vec<
 /// ```
 /// 
 /// # Notes 
+/// - In the future, if there are more types of mosaic, add them here
 #[no_mangle]
 fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_type_of_mosaic: u8 ) -> u8{
     // needs to return the result / status of this function
     let mut status = 0;
 
-    //Message convert method
+    // Message convert method
     // .chars() is an iterator 
     // .map() converts the elements to u8 
     // .collect() collects all the converted data and puts into the array 
@@ -733,11 +1081,17 @@ fn decode_message_to_u8( message: &str, message_in_bytes: &mut Vec<u8> , wanted_
     let values_to_append_at_start: Vec<u8> = vec![custom_byte, 0, 1, 0];
 
     // .extend(), appends / adds another array to the current array
+    // merge the initial values to append to the start which are in u8 type
     message_in_bytes.extend(values_to_append_at_start);
+
+    // merge the message that is in u8
     message_in_bytes.extend(result);
 
-
+    // this variable stores the information about the type of mosaic
     let mut type_of_mosaic: Vec<u8> = Vec::new(); 
+
+    // PENDING
+    // add more types of mosaic here if needed
     if  wanted_type_of_mosaic == 0 
     {
         // Types of Mosaic (XPX, Storage, etc...)
@@ -835,11 +1189,22 @@ fn create_aggregate_transaction(  max_fee: u64 , combined_bytes: Vec<u8> , entit
 /// # Objective
 /// This function is used get the call parameters when calling / deploying supercontract and clean the data inputted
 /// 
+/// # Steps
+/// 1: get the parameters
+/// 
+/// 2: convert them a from utf8 to u8
+/// 
+/// 3: convert the u8 to String
+/// 
+/// 4: append it to the return array
+/// 
 /// # Parameters
 /// - input_parts: the vector array that will store the clean data
 /// 
 /// # Examples
 /// ```
+/// // Tested inside of blockchain
+/// 
 /// let mut temp: Vec<String> = Vec::new();
 /// 
 /// let status_get_clean_params = get_clean_call_params(&mut temp);
@@ -884,21 +1249,28 @@ fn get_clean_call_params( input_parts: &mut Vec<String> ) -> u8
 /// # Objective
 /// This function is used to get the amount staked and return the amount after interest / reward from staking into the blockchain 
 /// 
+/// # Steps
+/// 1: get the original deposited amount
+/// 
+/// 2: convert it to u32
+/// 
+/// 3: add the reward to the u32 value
+/// 
+/// 4: push the new amount in the return vector
+/// 
 /// # Parameters
 /// - mosaic: the amount in string type
 /// - rewarded_mosaic_in_string: the string that will hold the new amount of mosaic after interest in String data type
 /// 
 /// # Examples
 /// ```
+/// // Tested outside of blockchain
+/// // EXPECTED: 1100
 /// let mosaic = "1000";
-/// let mut rewarded_mosaic_in_string = String::from();
-/// 
-/// // get the clean amount of mosaic which is in String
+/// let mut rewarded_mosaic_in_string = String::from("");
 /// get_clean_rewards(mosaic, &mut rewarded_mosaic_in_string);
-/// 
-/// // convert the String into &str for consistency
-/// // this part is for the code above to ensure consistency, not neccessarily needed
 /// let rewarded_mosaic_in_str: &str = rewarded_mosaic_in_string.as_str();
+/// println!("{}",rewarded_mosaic_in_str);
 /// ```
 /// 
 /// # Notes 
@@ -932,12 +1304,23 @@ fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> 
 /// # Objective
 /// This function is used to read the contents of a file and output a Vec<String>
 /// 
+/// # Steps
+/// 1: read the content of the file
+/// 
+/// 2: convert the file contents from utf8 to u8
+/// 
+/// 3: split the content of the file using a delimiter
+/// 
+/// 4: put the contents inside the return array
+/// 
 /// # Parameters
 /// - file_path: the file name with .txt
 /// - out: the Vector that will store the contents of the file
 /// 
 /// # Examples
 /// ```
+/// // Tested inside blockchain
+/// // Expected all contents of the file to be in the data variable
 /// // create a file
 /// {
 ///     let mut file = FileWriter::new("try.txt").unwrap();
@@ -954,7 +1337,8 @@ fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> 
 /// ```
 /// 
 /// # Notes
-fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
+fn file_read( file_path:&str, out:&mut Vec<String> ) -> u8 
+{
     // needs to return the result / status of this function
     let mut status = 0;
 
@@ -991,17 +1375,30 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// # Objective
 /// This function is used to linearly search through all the contents of a file for a specific data and extract it out
 /// 
+/// # Steps
+/// 1: loop through the entire data
+/// 
+/// 1.1: if the word matches the key, 
+/// 
+/// 1.1.1: add the data into the wanted return array
+/// 
+/// 1.2: else 
+/// 
+/// 1.2.1: add them to the return original data return array
+/// 
 /// # Parameters
 /// - data_array: the contents from the file in Vec<String> 
 /// - target: the String we are looking for
-/// - number_of_data_per_client: how many words are there seperated by a delimiter for 1 client / customer inside the text file
-/// -- for example: 3 A;key001,key008
+/// - number_of_data_per_client: how many words are there seperated by a delimiter, the number of words are for 1 client / customer inside the text file
+/// -- for example: 3 = A;key001,key008
 /// - read_buffer_modified: the output Vector that will store the contents of the file without the target inside of it
 /// - wanted_data: the target data
 /// - number_of_targets: the number of times the target appeared
 /// 
 /// # Examples
 /// ```
+/// // Tested outside of blockchain
+/// // Expects the targetted data 
 /// // create a file
 /// {
 ///     let mut file = FileWriter::new("try.txt").unwrap();
@@ -1040,7 +1437,9 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// ```
 /// 
 /// # Notes
+/// - There could be issues caused by this function due to the indexing 
 fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_client:u8, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>, number_of_targets: &mut Vec<u8>) -> u8 {
+
     // needs to return the result / status of this function
     // set 1 by default, will change to 0 if target is found
     let mut status = 1;
@@ -1050,6 +1449,8 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
 
     // MODIFY
     // this indicates the number jumps to perform 
+    // eg: A|;B|;C|;
+    // number of jumps if we want only the alphabets = 3
     let number_of_jumps: u8 = 2;
 
     // MODIFY
@@ -1176,12 +1577,21 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
 /// This function is used to append a string into an existing file by reading the contents of the original file and then re-writting the contents and the string that wants to be written
 /// The reason for this, is due to the limitation of the file sdk where append was not possible
 /// 
+/// # Steps
+/// 1: read the contents of the original file
+/// 
+/// 2: write the contents of the original file into a new file
+/// 
+/// 3: write the new contents into the new file 
+/// 
 /// # Parameters
 /// - file_path: the file name with the .txt
 /// - content: the String in the type Vec<u8> to put inside the file
 /// 
 /// # Examples
 /// ```
+/// // Tested inside of blockchain
+/// // Expects the content of the original file to be present along side the new content in the new text file
 /// // create a file
 /// {
 ///     let mut file = FileWriter::new("try.txt").unwrap();
@@ -1238,6 +1648,33 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
 /// This function is designed to iterate through a string and seperate them into different strings based on "a" delimiter ( 1 delimiter )
 /// The reason for this function's existence is due to the sdk not being able to provide this function
 /// 
+/// # Steps
+/// 1: while there still exist characters
+/// 
+/// 1.1: if there is a character after this
+/// 
+/// 1.1.1: if the current character is not the delimiter
+/// 
+/// 1.1.1.1: add the character to a temporary array ( which will be used to convert the collection of char into String )
+/// 
+/// 1.1.2: if the current character is the delimiter
+/// 
+/// 1.1.2.1: convert the temporary vector of characters to string and push it to the return vector and add the delimiter as a string after it 
+/// 
+/// 1.2: if there is no more characters after the current character
+/// 
+/// 1.2.1: if the temporary array is not empty and the current character is not a delimiter
+/// 
+/// 1.2.1.1 : convert the temporary array into a string and push it to the output array
+/// 
+/// 1.2.2: if the temporary array is not empty but the current character is a delimiter
+/// 
+/// 1.2.2.1: convert the temporary array into a string and push it into the output array, and push the delimiter to the output array as a string
+/// 
+/// 1.2.3: else if there are no more characters left
+/// 
+/// 1.2.3.1: convert the temporary array into a string and push it into the output array,
+/// 
 /// # Parameters
 /// - input: the String that wants to be split
 /// - delimiter: the delimiter in &str type
@@ -1245,12 +1682,15 @@ fn file_append(file_path:&str , content: &String ) -> u32 {
 /// 
 /// # Examples
 /// ```
+/// // Tested outside of blockchain
+/// // Expected all of the content to be something like this ["A",";"]
 /// let mut result: Vec<String> = Vec::new();
-/// let mut read_buffer_modified = Vec::new();
-/// let mut wanted_data = Vec::new();
+/// let mut read_buffer_modified: Vec<String>  = Vec::new();
+/// let mut wanted_data: Vec<String>  = Vec::new();
 /// let mut target = "keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO";
 /// let number_of_data_per_client = 7;
 /// string_spliter_terminator("A;keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;329;0;A;keyAD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;2000;329;0;".to_string(), ";", &mut result);
+/// println!("{:?}",result);
 /// ```
 /// 
 /// # Notes
@@ -1351,6 +1791,13 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 /// # Objective
 /// This function creates a new text file, and writes the contents of the original file ( input ) and the content that wants to be appended in ( input )
 /// 
+/// # Steps
+/// 1: convert the string vectors to u8 vectors
+/// 
+/// 2: create a file
+/// 
+/// 3: write the contents in u8 to the file 
+/// 
 /// # Parameters
 /// - file_path: the file name with the .txt
 /// - original_data: the original contents of the file
@@ -1358,6 +1805,8 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 /// 
 /// # Examples
 /// ```
+/// // Tested inside of blockchain 
+/// // Expected the file to be have both the contents of the original file and the new contents to be present within the text file
 /// // create a file
 /// {
 ///     let mut file = FileWriter::new("try.txt").unwrap();
@@ -1390,7 +1839,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 /// 
 /// # Notes
 /// - If the write function in the sdk can accomodate append, this function is not needed
-fn file_append_with_existing(file_path:&str , original_data:&mut Vec<String>, content:&mut Vec<String> ) -> u32 {
+fn file_append_with_existing( file_path:&str , original_data:&mut Vec<String>, content:&mut Vec<String> ) -> u32 {
     // needs to return the result / status of this function
     let mut status: u32 = 0;
 
@@ -1436,13 +1885,27 @@ fn file_append_with_existing(file_path:&str , original_data:&mut Vec<String>, co
 /// # Objective
 /// This function is designed to take in a Vector of String and convert it into a vector of u8
 /// 
+/// # Steps
+/// 1: clone the vector
+/// 
+/// 2: convert it into an iterable so that we can go through the contents of the vector
+/// 
+/// 3: convert the String into a series of u8
+/// 
+/// 4: collec the results
+/// 
+/// 5: append to the output array
+/// 
 /// # Parameters
 /// - in_string_vector: the Vector of String that wants to be converted
 /// - out_u8_vector: the Vector of u8 that will store the converted version 
 /// 
 /// # Examples
 /// ```
-/// let mut converted_others_u8 : Vec<u8> = Vec::new();
+/// // Tested outside of blockchain 
+/// // Expects the data to be converted to u8
+/// let mut result = "cool";
+/// let mut converted_target_u8 : Vec<u8> = Vec::new();
 /// let status_convert_vec_string_to_vec_u8_target = convert_string_vector_to_u8_vector(&mut result, &mut converted_target_u8);
 /// //PENDING
 /// if status_convert_vec_string_to_vec_u8_target == 1 {
@@ -1464,12 +1927,21 @@ fn convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8
 /// # Objective
 /// This function is designed to take in a Vector of u8 and convert it into a vector of String with only 1 element
 /// 
+/// # Steps
+/// 1: convert the contents of the input array into a string
+/// 
+/// 2: concatenate the contents 
+/// 
+/// 3: push the string to the output array 
+/// 
 /// # Parameters
 /// - input_vector_u8: the Vector of u8 that wants to be converted
 /// - output_string: the Vector of String that will store the converted version 
 /// 
 /// # Examples
 /// ```
+/// // Tested outside of blockchain
+/// // Expected all the numbers to become 1 string
 /// let data = [4, 85, 245, 50, 109, 92, 56, 1, 21, 228, 186, 228, 182, 235, 44, 239, 79, 131, 195, 229, 196, 81, 116, 148, 191, 225, 31, 85, 84, 19, 92, 247];
 /// let mut result3 = Vec::new();
 /// let status = convert_vector_u8_to_string(data, &mut result3);
@@ -1483,6 +1955,7 @@ fn convert_vector_u8_to_string( input_vector_u8: [u8;32] , output_string:&mut Ve
     // this array will store the String 
     let mut converted_to_string: Vec<String> = Vec::new();
 
+    // for every u8, convert them to string and add them to a temporary vector 
     for x in input_vector_u8.iter(){
         converted_to_string.push(x.to_string());
     }
