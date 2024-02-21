@@ -1,7 +1,7 @@
 /*
 File name: Game supercontract
-Version: 5
-Patch notes: made working send and withdraw functions
+Version: 5.1
+Patch notes: refactored and commented version
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use, potential areas with bugs 
@@ -28,7 +28,7 @@ Main account's parameters
 SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;1
 
 Third account's parameters
-SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Bye Bye money;1000;1
+SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;money;1000;1
 
 Send function parameters for main account
 1000;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA
@@ -70,28 +70,24 @@ pub unsafe extern "C" fn run() -> u32
 }
 
 /// # Objective
-/// This function aims to send mosaic to a seperate account which will hold the mosaic as a deposit
+/// This function's objective is to transfer xpx to another account and record the transfer
 /// 
-/// # Steps
-/// 0.1: Account B ( contract deployer ) deployes the supercontract into the blockchain using the run function
+/// # Step
+/// 1) inputs from storage tool "parameters tab"
 /// 
-/// 0.2: Account A ( client / user ) calls this supercontract using the contract key and uses this deposit function to send some mosaic to another account specified
+/// 2) address conversion to base 32
 /// 
-/// 0.3: After a set amount of time, Account A ( client / user ) calls this supercontract using the contract key and uses the withdraw function to send mosaic back to Account A 
+/// 3) message conversion to base 32
 /// 
-/// 1: obtain the parameters from the storage tool
+/// 4) mosaic conversion to base 32
 /// 
-/// 2: convert the address to base 32
+/// 5) transaction creation
 /// 
-/// 3: convert the message to base 32
+/// 6) get caller public 
 /// 
-/// 4: convert the mosaic to base 32
+/// 7) check file's existence
 /// 
-/// 5: create transaction 
-/// 
-/// 6: get caller public key 
-/// 
-/// 7: write information into a text file
+/// 8) write into file to check if return deposit is satisfied
 /// 
 /// # Notes 
 /// - Sometimes it does not work because of the absence of the mosaic type and amount on the left box when deploying ( service payment ),
@@ -101,23 +97,27 @@ pub unsafe extern "C" fn run() -> u32
 #[no_mangle]
 pub unsafe extern "C" fn deposit() -> u32 {
 
-    /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
+    /////////////////////// 1) inputs from storage tool "parameters tab" starts ///////////////////////
     // temp holds the cleaned up get_call_params
     let mut temp: Vec<String> = Vec::new();
     
     // the status is used to indicate success or failure of the function 
     let status_get_clean_params = internal_get_clean_call_params(&mut temp);
 
-    // if the address is not valid, immediately fail
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
+    // if the parameters retrievel is unsuccessful, immediately return 
     if status_get_clean_params == 1 
     {
-        // can choose to also panic!();
         return 1;
     }
 
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
     // end the function early because that means that there was no parameter inputted and this function was called by a contract deployer
     if temp.len() == 0 
     {
+        // return 0, because the function needs to be deployed but end its operations here
         return 0;
     }
 
@@ -147,29 +147,29 @@ pub unsafe extern "C" fn deposit() -> u32 {
 
     // set the deposit duration
     let deposit_duration = get_block_height() as u32 + internal_calculate_deposit_time_mins_to_block(call_param_deposit_time_u32);
-    /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
+    /////////////////////// 1) inputs from storage tool "parameters tab" ends ///////////////////////
     
     
 
-    /////////////////////// address conversion to base 32 starts ///////////////////////
+    /////////////////////// 2) address conversion to base 32 starts ///////////////////////
     // this is the array that will store the information for the decoded address
     let mut decoded_address: Vec<u8> = Vec::new();
 
     // converts the string address into a Vec<u8>
     let status_decode_address: u8 = internal_decode_address_string_to_u8(address, &mut decoded_address);
 
-    // if the address is not valid, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if status_decode_address == 1 {
-
-        // can choose to also panic!();
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
+    // is the address is not valid 
+    if status_decode_address == 1 
+    {
         return 1;
     }
-    /////////////////////// address conversion to base 32 ends ///////////////////////
+    /////////////////////// 2) address conversion to base 32 ends ///////////////////////
     
 
     
-    /////////////////////// message conversion to base 32 starts ///////////////////////
+    /////////////////////// 3) message conversion to base 32 starts ///////////////////////
     // this is the array that will store the message in bytes
     let mut message_in_bytes: Vec<u8> = Vec::new();
 
@@ -177,16 +177,16 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let status_decode_message: u8 = internal_decode_message_to_u8(message, &mut message_in_bytes, 0 );
 
     // PENDING
-    if status_decode_message == 1{
-
-        //panic!();
+    // remove return and write the error into a variable and write the contents at the end 
+    if status_decode_message == 1
+    {
         return 1;
     }
-    /////////////////////// message conversion to base 32 ends ///////////////////////
+    /////////////////////// 3) message conversion to base 32 ends ///////////////////////
     
 
     
-    /////////////////////// mosaic conversion to base 32 starts ///////////////////////
+    /////////////////////// 4) mosaic conversion to base 32 starts ///////////////////////
     // this is the array that will store the mosaic in bytes
     let mut mosaic_in_bytes = vec![0; 8];
 
@@ -194,16 +194,17 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let status_decode_mosaic_amount = internal_decode_mosaic_amount_to_u8(mosaic, &mut mosaic_in_bytes);
 
     // PENDING
-    if status_decode_mosaic_amount == 1{
-
-        //panic!();
+    // remove return and write the error into a variable and write the contents at the end 
+    // if the mosaic cannot be converted, immediately break
+    if status_decode_mosaic_amount == 1
+    {
         return 1;
     }
-    /////////////////////// mosaic conversion to base 32 ends ///////////////////////
+    /////////////////////// 4) mosaic conversion to base 32 ends ///////////////////////
     
     
     
-    /////////////////////// transaction creation starts ///////////////////////
+    /////////////////////// 5) transaction creation starts ///////////////////////
     // Combine the bytes from decoded_address, message_in_bytes, and mosaic_in_bytes
     let mut combined_bytes = Vec::new();
     combined_bytes.extend_from_slice(&decoded_address);
@@ -214,17 +215,17 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let status_create_transaction = internal_create_aggregate_transaction(1, combined_bytes, 16724, 3);
 
     // PENDING
-    // the status is used to indicate success or failure of the function 
-    if status_create_transaction == 1{
-
-        //panic!();
+    // remove return and write the error into a variable and write the contents at the end 
+    // if the transaction cannot be created, immediately stop
+    if status_create_transaction == 1
+    {
         return 1;
-        }
-    /////////////////////// transaction creation ends ///////////////////////
+    }
+    /////////////////////// 5) transaction creation ends ///////////////////////
     
 
 
-    /////////////////////// get caller public starts ///////////////////////
+    /////////////////////// 6) get caller public starts ///////////////////////
     // get the caller public key
     let caller_public_key_vector_u8: [u8; 32] = get_caller_public_key();
 
@@ -237,31 +238,30 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let status_convert_public_key_to_string = internal_convert_vector_u8_to_vector_string(caller_public_key_vector_u8, &mut 
     caller_public_key_vector_string);
 
-    // PENDING, want to use panic!(); or return 1;?
-    if status_convert_public_key_to_string == 1 {
-
-        // can choose to also panic!();
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
+    if status_convert_public_key_to_string == 1 
+    {
         return 1;
     }
 
     // this variable holds the information in string
     let caller_public_key = &caller_public_key_vector_string[0];
-    /////////////////////// get caller public ends ///////////////////////
+    /////////////////////// 6) get caller public ends ///////////////////////
     
-
-
-    /////////////////////// file name preparation starts ///////////////////////
-    // to prepare the file name
-    let file_name = format!("{}.txt",caller_public_key); 
-    /////////////////////// file name preparation ends ///////////////////////
      
 
-
-    /////////////////////// check file's existence starts ///////////////////////
+    /////////////////////// 7) check file's existence starts ///////////////////////
     // the purpose of this section is to check if the file exist or not, 
     // if the file does not already exist, create an empty file
     // if it exist, dont touch it
     // we do this so that we can read from the file wheter it is empty or not
+
+    // another reason of this section is because file reader cannot read an empty file
+
+    // to prepare the file name
+    let file_name = format!("{}.txt",caller_public_key); 
+
     // this variable stores the boolean of wheter the file exist or not
     let mut is_file_exist = false;
 
@@ -276,11 +276,11 @@ pub unsafe extern "C" fn deposit() -> u32 {
         // set the file existence condition to true
         is_file_exist = true;
     }
-    /////////////////////// check file's existence ends ///////////////////////
+    /////////////////////// 7) check file's existence ends ///////////////////////
 
 
      
-    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+    /////////////////////// 8) write into file to check if return deposit is satisfied starts ///////////////////////
     // MODIFY
     // if the way to store the key is changed, for example: instead of key001, it becomes alpha001, change here
     // extra character , caller public key to act as a key for linear search , the sender's address so that can auto send mosaic back when withdrawing , receiver's address so that can send to an account , a message , what type of mosaic are we sending? , the current block height which will be used for withdrawal check 
@@ -299,6 +299,8 @@ pub unsafe extern "C" fn deposit() -> u32 {
         let status_file_read = internal_file_read(&file_name, &mut data);
 
         // PENDING
+        // remove return and write the error into a variable and write the contents at the end 
+        // this checks if the file can be read or not 
         if status_file_read == 1
         {
             return 1;
@@ -309,62 +311,125 @@ pub unsafe extern "C" fn deposit() -> u32 {
     let status_append_existing = internal_file_append_with_existing(&file_name, &mut data, &mut input_array);
 
     // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
+    // cheks if the writing into the file is a success or not
     if status_append_existing == 1 
     {
         return 1;
     }
-    /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
+    /////////////////////// 8) write into file to check if return deposit is satisfied starts ///////////////////////
     return 0;
 }
 
+
+/// # Objective
+/// This function aims to send mosaic back to the account which deposited the money
+/// 
+/// # Steps
+/// 1) inputs from storage tool "parameters tab"
+/// 
+/// 2) get caller public
+/// 
+/// 3) find the file and read the contents of the file
+/// 
+/// 4) find the intended withdrawal
+/// 
+/// 5) transaction preparation, creation and acknoledgement
+/// 
+///     5.1) address of conversion to base 32
+/// 
+///     5.2) message conversion to base 32
+/// 
+///     5.3) mosaic conversion to base 32
+/// 
+///     5.4) transaction creation
+/// 
+///     5.4) transaction creation
+/// 
+/// # Notes 
+/// - if the key / someone who did not deposit the account calls withdraw, the contract should return a status of 1
 #[no_mangle]
 pub unsafe extern "C" fn withdraw() -> u32 {
 
+    // call the transfer with mode = 0 , withdraw
     let status_transfer = transfer_aux(0);
-
+    
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
     if status_transfer == 1
     {
         return 1;
     }
-    else 
-    {
-        return 0;   
-    }
+        
+    return 0;   
+    
 }
 
+
+/// # Objective
+/// This function aims to send mosaic back to the account which deposited the money
+/// 
+/// # Steps
+/// 1) inputs from storage tool "parameters tab"
+/// 
+/// 2) get caller public
+/// 
+/// 3) find the file and read the contents of the file
+/// 
+/// 4) find the intended withdrawal
+/// 
+/// 5) transaction preparation, creation and acknoledgement
+/// 
+///     5.1) address conversion to base 32
+/// 
+///     5.2) message conversion to base 32
+/// 
+///     5.3) mosaic conversion to base 32
+/// 
+///     5.4) transaction creation
+/// 
+///     5.4) transaction creation
+/// 
+/// # Notes 
+/// - if the key / someone who did not deposit the account calls withdraw, the contract should return a status of 1
 #[no_mangle]
 pub unsafe extern "C" fn send() -> u32 {
 
     let status_transfer = transfer_aux(1);
 
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
     if status_transfer == 1
     {
         return 1;
     }
-    else 
-    {
-        return 0;   
-    }
+
+    return 0;   
 }
 
 /// # Objective
-/// This function aims to send mosaic back to the account which deposited the money
+/// This function aims to send mosaic 
 /// 
-/// /// # Steps
-/// 0.1: Account B ( contract deployer ) deployes the supercontract into the blockchain using the run function
+/// # Steps
+/// 1) inputs from storage tool "parameters tab"
 /// 
-/// 0.2: Account A ( client / user ) calls this supercontract using the contract key and uses this deposit function to send some mosaic to another account specified
+/// 2) get caller public
 /// 
-/// 0.3: After a set amount of time, Account A ( client / user ) calls this supercontract using the contract key and uses the withdraw function to send mosaic back to Account A 
+/// 3) find the file and read the contents of the file
 /// 
-/// 1: obtain the parameters from the storage tool
+/// 4) find the intended withdrawal
 /// 
-/// 2: get caller public key
+/// 5) transaction preparation, creation and acknoledgement
 /// 
-/// 3: search for the account's deposit information
+///     5.1) address conversion to base 32
 /// 
-/// 4: find the correct deposit which matches the parameter inputted, if there is no information that matches the parameter, the withdrawal is invalid 
+///     5.2) message conversion to base 32
 /// 
+///     5.3) mosaic conversion to base 32
+/// 
+///     5.4) transaction creation
+/// 
+///     5.4) transaction creation
 /// 
 /// 
 /// # Notes 
@@ -372,17 +437,17 @@ pub unsafe extern "C" fn send() -> u32 {
 #[no_mangle]
 fn transfer_aux( mode:u64 ) -> u32 {
 
-    /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
+    /////////////////////// 1) inputs from storage tool "parameters tab" starts ///////////////////////
     // temp holds the cleaned up get_call_params
     let mut temp: Vec<String> = Vec::new();
     
     let status_get_clean_params = internal_get_clean_call_params(&mut temp);
 
-    // if the address is not valid, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if status_get_clean_params == 1 {
-
-        // can choose to also panic!();
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
+    // checks if can retrieve the params or not
+    if status_get_clean_params == 1 
+    {
         return 1;
     }
 
@@ -415,15 +480,17 @@ fn transfer_aux( mode:u64 ) -> u32 {
     // this variable holds the address of the new send address
     let mut call_param_send_address = String::new();
 
+    // checks which operation are we performing, send or withdraw
     if mode == 1
     {
+        // get the address of the new reciepient / send address 
         call_param_send_address = input_parts[1].to_string();
     }
-    /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
+    /////////////////////// 1) inputs from storage tool "parameters tab" ends ///////////////////////
 
     
 
-    /////////////////////// get caller public starts ///////////////////////
+    /////////////////////// 2) get caller public starts ///////////////////////
     // get the caller public key
     let caller_public_key_vector_u8: [u8; 32] = get_caller_public_key();
 
@@ -434,36 +501,29 @@ fn transfer_aux( mode:u64 ) -> u32 {
     let status_convert_public_key_to_string = internal_convert_vector_u8_to_vector_string(caller_public_key_vector_u8, &mut 
     caller_public_key_vector_string);
 
-    // PENDING, want to use panic!(); or return 1;?
-    if status_convert_public_key_to_string == 1 {
-
-        // can choose to also panic!();
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
+    // checks if the conversion is a success or not
+    if status_convert_public_key_to_string == 1 
+    {
         return 1;
     }
 
     // this variable holds the information in string
     let caller_public_key = &caller_public_key_vector_string[0];
-    /////////////////////// get caller public ends ///////////////////////
+    /////////////////////// 2) get caller public ends ///////////////////////
     
 
 
-    /////////////////////// find the file and read the contents of the file starts ///////////////////////  
+    /////////////////////// 3) find the file and read the contents of the file starts ///////////////////////  
     // this Vector will store the information about the target
     let mut result: Vec<String> = Vec::new();
-
-    // this Vector is used to store data that exist within the file to avoid re-reading and lower the time complexity 
-    let mut data: Vec<String> = Vec::new();
-
-    // this Vector is used to store the contents of the file which is in the data variable above, but without target data
-    let mut read_buffer : Vec<String> = Vec::new();
-
-    // this Vector stores the number of times the data appeared
-    let mut number_of_targets: Vec<u8> = Vec::new(); 
 
     // MODIFY
     // if the number changes
     // this variable stores the number of data per client in the text file
     // for example: A;2;harlow = 3 
+    // can also have this as a constant outside of all the functions, eg: static number_of_data_per_client 8;
     let number_of_data_per_client: u8 = 8;
     
     // get the file name
@@ -472,26 +532,23 @@ fn transfer_aux( mode:u64 ) -> u32 {
     // read the contents of the file and convert them into a Vector of String
     let read_status = internal_file_read(&file_name, &mut result);
 
-    // if the file dosent exist, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if read_status == 1 {
-
-        // can choose to also panic!();
+    // PENDING
+    // remove return and write the error into a variable and write the contents at the end 
+    // checks if the file could be read
+    if read_status == 1 
+    {
         return 1;
     }
-
-    // calculate the number of data
-    let calculated_number_of_targets = ( result.len() / 2 ) / number_of_data_per_client as usize;
-    number_of_targets.push(calculated_number_of_targets as u8);
-    /////////////////////// find the file and read the contents of the file ends ///////////////////////  
+    /////////////////////// 3) find the file and read the contents of the file ends ///////////////////////  
     
 
     
-    /////////////////////// find the intended withdrawal starts ///////////////////////
+    /////////////////////// 4) find the intended withdrawal starts ///////////////////////
     // The following variables are for the system to work properly
     // extract the number of deposits made
-    let number_of_deposits = number_of_targets[0];
+    let number_of_deposits: u8 = ( result.len() / 2 ) as u8 / number_of_data_per_client as u8;
 
+    // this variable decides if the withdrawal should be permitted 
     let mut is_withdrawal = false;
 
     // this will be the vector that will store the information of the chosen deposit information
@@ -506,6 +563,7 @@ fn transfer_aux( mode:u64 ) -> u32 {
 
     // convert to i64
     let current_block_height_i64: i64 = current_block_height as i64;
+
 
 
     // the following variables are used to store information regarding the data that has been chosen
@@ -533,6 +591,7 @@ fn transfer_aux( mode:u64 ) -> u32 {
     let mut withdrawal_status =  "".to_string();
 
 
+    
     // the following variables is for the potential deposit data
     // why are they seperated? 
     // because we dont want the data to overlap
@@ -562,11 +621,6 @@ fn transfer_aux( mode:u64 ) -> u32 {
     // loop through every single deposit in the file
     for x in 0..number_of_deposits{
 
-        // MODIFY
-        // its currently -2 because thats how it includes the ";" 
-        // this is the variable that stores the index of the status
-        // eg: 
-        // iteration 0, index of status = 11 
         // status
         let retrieved_status_index = (x * number_of_data_per_client * 2 ) + ( number_of_data_per_client  * 2 ) - ( 1 * 2 );
         let retrieved_status = &result[ retrieved_status_index as usize ];
@@ -585,6 +639,8 @@ fn transfer_aux( mode:u64 ) -> u32 {
         // the variable that will store the mosaic from the file
         let mut retrieved_amount_u64:u64 = 0;
 
+        // PENDING
+        // remove return and write the error into a variable and write the contents at the end 
         // convert to u64
         match retrieved_amount_string_temp.parse::<u64>()
         {
@@ -598,8 +654,11 @@ fn transfer_aux( mode:u64 ) -> u32 {
             }
         }
 
+        // PENDING
+        // remove return and write the error into a variable and write the contents at the end 
         // convert the height to int 
-        let retrieved_block_height_in_i64: i64 = match retrieved_height.trim().parse() {
+        let retrieved_block_height_in_i64: i64 = match retrieved_height.trim().parse() 
+        {
             Ok(integer) => integer,
             Err(_) => return 99,
         };
@@ -700,8 +759,10 @@ fn transfer_aux( mode:u64 ) -> u32 {
         {
             // MODIFY 
             // if the number of data here changed, please add here
+            // PENDING 
             // UPDATE, can make here more robust
             // all the indexing must be 0,2,4..2n cause of the ";"
+
             // get placeholder / extra character
             let read_potential_placeholder_index = (x * number_of_data_per_client * 2 ) + ( 0 * 2 );
             read_potential_placeholder = result[read_potential_placeholder_index as usize ].clone();
@@ -781,24 +842,27 @@ fn transfer_aux( mode:u64 ) -> u32 {
             potential_withdraw_data.push(";".to_string());
         }
     }
-
-    /////////////////////// find the intended withdrawal ends ///////////////////////
+    /////////////////////// 4) find the intended withdrawal ends ///////////////////////
 
 
     
-    /////////////////////// transaction creation process starts ///////////////////////
-
+    /////////////////////// 5) transaction preparation, creation and acknoledgement starts ///////////////////////
     // check if the condition has been met
+    // if true, create transaction
     if is_withdrawal == true 
     { 
-        /////////////////////// address conversion to base 32 starts ///////////////////////
+
+        /////////////////////// 5.1) address conversion to base 32 starts ///////////////////////
         // this variable holds the address to send 
         let mut send_address: &str = "";
 
+        // checks which function we are using
+        // mode == 1, is for send
         if mode == 1
         {
             send_address = &call_param_send_address;
         }
+        // mode == 0, is for withdraw
         else
         {
             send_address = &read_sender_address
@@ -810,18 +874,18 @@ fn transfer_aux( mode:u64 ) -> u32 {
         // stores the status of the conversion
         let status_decode_address: u8 = internal_decode_address_string_to_u8(send_address, &mut decoded_address);
 
-        // if the address is not valid, immediately fail
-        // PENDING, want to use panic!(); or return 1;?
-        if status_decode_address == 1 {
-
-            // can choose to also panic!();
+        // PENDING
+        // remove return and write the error into a variable and write the contents at the end 
+        // checks if the decoding proccess is successful or not
+        if status_decode_address == 1 
+        {
             return 1;
         }
-        /////////////////////// address conversion to base 32 ends ///////////////////////
+        /////////////////////// 5.1) address conversion to base 32 ends ///////////////////////
 
 
 
-        /////////////////////// message conversion to base 32 starts ///////////////////////
+        /////////////////////// 5.2) message conversion to base 32 starts ///////////////////////
         // this is the array that will store the message in bytes
         let mut message_in_bytes: Vec<u8> = Vec::new();
 
@@ -829,16 +893,16 @@ fn transfer_aux( mode:u64 ) -> u32 {
         let status_decode_message: u8 = internal_decode_message_to_u8(&read_message, &mut message_in_bytes, 0 );
 
         // PENDING
-        if status_decode_message == 1{
-
-            //panic!();
+        // remove return and write the error into a variable and write the contents at the end 
+        if status_decode_message == 1
+        {
             return 1;
         }
-        /////////////////////// message conversion to base 32 ends ///////////////////////
+        /////////////////////// 5.2) message conversion to base 32 ends ///////////////////////
         
 
 
-        /////////////////////// mosaic conversion to base 32 starts ///////////////////////
+        /////////////////////// 5.3) mosaic conversion to base 32 starts ///////////////////////
         // this is the array that will store the mosaic in bytes
         let mut mosaic_in_bytes = vec![0; 8];
 
@@ -846,16 +910,17 @@ fn transfer_aux( mode:u64 ) -> u32 {
         let status_decode_mosaic_amount = internal_decode_mosaic_amount_to_u8(&mosaic, &mut mosaic_in_bytes);
 
         // PENDING
-        if status_decode_mosaic_amount == 1{
-
-        //panic!();
-        return 1;
+        // remove return and write the error into a variable and write the contents at the end 
+        // checks if the mosaic decoding proccess is a success or not
+        if status_decode_mosaic_amount == 1
+        {
+            return 1;
         }
-        /////////////////////// mosaic conversion to base 32 ends ///////////////////////
+        /////////////////////// 5.3) mosaic conversion to base 32 ends ///////////////////////
         
         
         
-        /////////////////////// transaction creation starts ///////////////////////
+        /////////////////////// 5.4) transaction creation starts ///////////////////////
         // Combine the bytes from decoded_address, message_in_bytes, and mosaic_in_bytes
         let mut combined_bytes = Vec::new();
         combined_bytes.extend_from_slice(&decoded_address);
@@ -865,16 +930,17 @@ fn transfer_aux( mode:u64 ) -> u32 {
         let status_create_transaction = internal_create_aggregate_transaction(1, combined_bytes, 16724, 3);
 
         // PENDING
-        if status_create_transaction == 1{
-
-        //panic!();
-        return 1;
+        // remove return and write the error into a variable and write the contents at the end 
+        // to check if the aggregate transaction could be created or not
+        if status_create_transaction == 1
+        {
+            return 1;
         }
-        /////////////////////// transaction creation ends ///////////////////////
+        /////////////////////// 5.4) transaction creation ends ///////////////////////
         
         
 
-        /////////////////////// status update starts ///////////////////////
+        /////////////////////// 5.5) status update starts ///////////////////////
         // firstly change the status of the chosen deposit data
         // change the withdrawal status to true
         // -2 because -1 is the ";"
@@ -887,10 +953,13 @@ fn transfer_aux( mode:u64 ) -> u32 {
         let status_file_append = internal_file_append_with_existing(&file_name, &mut potential_withdraw_data, &mut chosen_withdraw_data);
 
         // PENDING
-        if status_file_append == 1 {
+        // remove return and write the error into a variable and write the contents at the end 
+        // checks if the file append is successful or not 
+        if status_file_append == 1 
+        {
             return 1;
         }
-        /////////////////////// status update ends ///////////////////////
+        /////////////////////// 5.5) status update ends ///////////////////////
         
         return 0;
     } 
@@ -898,7 +967,7 @@ fn transfer_aux( mode:u64 ) -> u32 {
     {
         return 99;
     }
-    ///////////////////////  transaction creation process ends ///////////////////////
+    /////////////////////// 5) transaction preparation, creation and acknoledgement ends ///////////////////////
 
     
 }
