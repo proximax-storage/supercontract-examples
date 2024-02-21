@@ -1,7 +1,7 @@
 /*
 File name: Staking supercontract
-Version: 1.7.2
-Patch notes: added higher increments for linear search so its no longer +1 but +number of words per client
+Version: 1.8
+Patch notes: can now handle multiple deposits made by the same person. Also fixed logic error, where can deposit earlier when there is multiple deposits
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use, potential areas with bugs 
@@ -17,7 +17,7 @@ SD635GAAXIS6EHCEBLYDHJIRIHMMYAJMMMZH3YVC
 third account address
 SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB
 
-empty accoutn address 
+empty acount address 
 SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA
 address of empty wallet; message( can be anything ); mosaic
 
@@ -117,7 +117,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // +80 is approx 5 mins, 15s * 80 , 
     // also lets say if we put 80, then best is to have the autorun run 80 times + 20
     // MODIFY
-    let current_block_height = get_block_height() + 5;
+    let current_block_height = get_block_height() + 30;
     /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
     
     
@@ -262,6 +262,32 @@ pub unsafe extern "C" fn deposit() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn withdraw() -> u32 {
 
+    /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
+    // temp holds the cleaned up get_call_params
+    let mut temp: Vec<String> = Vec::new();
+    
+    let status_get_clean_params = get_clean_call_params(&mut temp);
+
+    // if the address is not valid, immediately fail
+    // PENDING, want to use panic!(); or return 1;?
+    if status_get_clean_params == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
+
+    // to convert to pointers because rest of the code relies on &str not String
+    // .iter() is to create an iterator so that can go through all of the items in the vectr
+    // .map() is to convert the contents that is presented by the iterator
+    // .collect() is to collect all the converted components
+    let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
+    
+    // stores the withdrawal amount 
+    let call_param_withdrawal_amount = input_parts[0]; 
+    /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
+
+
+
     /////////////////////// get caller public starts ///////////////////////
     // get the caller public key
     let caller_public_key_vector_u8: [u8; 32] = get_caller_public_key();
@@ -296,6 +322,15 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // this Vector is used to store the contents of the file which is in the data variable above, but without target data
     let mut read_buffer : Vec<String> = Vec::new();
 
+    // this Vector stores the number of times the data appeared
+    let mut number_of_targets: Vec<u8> = Vec::new();
+
+    // MODIFY
+    // if the number changes
+    // this variable stores the number of data per client in the text file
+    // for example: A;2;harlow = 3 
+    let number_of_data_per_client = 8;
+
     // read the contents of the file and convert them into a Vector of String
     let read_status = file_read("StakingSupercontractClientInformation.txt", &mut data);
 
@@ -312,10 +347,8 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     // to format how key will look like
     let target = format!("key{}",caller_public_key);
 
-    // MODIFY
-    // if there is a change in number of data, modify the number of data per client 
     // to search for the data 
-    let linear_search_status = linear_search(&mut data, &target , 8,&mut read_buffer, &mut result);
+    let linear_search_status = linear_search(&mut data, &target , number_of_data_per_client,&mut read_buffer, &mut result, &mut number_of_targets);
 
     // if the key is not valid, immediately fail
     // PENDING, want to use panic!(); or return 1;?
@@ -328,38 +361,124 @@ pub unsafe extern "C" fn withdraw() -> u32 {
 
 
     
-    /////////////////////// supercontract caller data extraction starts ///////////////////////
-    // MODIFY 
-    // if the number of data here changed, please add here
-    // UPDATE, can make here more robust
-    // all the indexing must be 0,2,4..2n cause of the ";"
-    // get placeholder / extra character
-    let read_placeholder = result[0].clone();
+    /////////////////////// find the intended withdrawal starts ///////////////////////
+    // extract the number of deposits made
+    let number_of_deposits = number_of_targets[0];
+
+    let mut is_withdrawal = false;
+
+
+
+    let mut read_placeholder = "".to_string();
+
+    let mut read_caller_public_key = "".to_string();
 
     // get the caller's public key
-    let read_sender_address = result[2].clone();
+    let mut read_sender_address =  "".to_string();
 
     // get the sender's address 
-    let read_sender_address = result[4].clone();
+    let mut read_sender_address =  "".to_string();
 
     // get the receiver's address 
-    let read_receiver_address = result[6].clone();
+    let mut read_receiver_address =  "".to_string();
 
     // get the message 
-    let read_message = result[8].clone();
+    let mut read_message =  "".to_string();
 
     // get the mosaic from the text file
-    let mosaic = result[10].clone();
+    let mut mosaic =  "".to_string();
 
     // take the height
-    let data_block_height = result[12].clone();
+    let mut data_block_height =   "".to_string();
 
     // get the withrawal status 
-    let withdrawal_status = result[14].clone();
+    let mut withdrawal_status =  "".to_string();
 
-    // convert the status to u32
-    let converted_withdrawal_status = withdrawal_status.parse::<u32>().unwrap();
+    // get current block height
+    let current_block_height: u64 = get_block_height();
 
+    // convert to i64
+    let current_block_height_i64: i64 = current_block_height as i64;
+
+    // loop through 
+    for x in 0..number_of_deposits{
+
+        // MODIFY
+        // its currently -2 because thats how it includes the ";" 
+        // this is the variable that stores the index of the status
+        // eg: 
+        // iteration 0, index of status = 11 
+        let retrieved_status_index = (x * number_of_data_per_client * 2 ) + ( number_of_data_per_client  * 2 ) - ( 1 * 2 );
+        let retrieved_status = &result[ retrieved_status_index as usize ];
+
+        let retrieved_height_index = (x * number_of_data_per_client * 2 ) + ( number_of_data_per_client  * 2 ) - ( 2 * 2 );
+        let retrieved_height = &result[ retrieved_height_index as usize ];
+
+        let retrieved_amount_index = (x * number_of_data_per_client * 2 ) + ( number_of_data_per_client  * 2 ) - ( 3 * 2 );
+        let retrieved_amount = &result[ retrieved_amount_index as usize ];
+
+        // convert the height to int 
+        let retrieved_block_height_in_i64: i64 = match retrieved_height.trim().parse() {
+            Ok(integer) => integer,
+            Err(_) => return 99,
+        };
+
+        // PENDING CHANGE HERE START
+        // add code here to check the retrieved height and current height 
+        // PENDING CHANGE HERE ENDS
+
+        // PENDING
+        // MAYBE here will have issues due to conversion types
+        if  call_param_withdrawal_amount == retrieved_amount.as_str() && retrieved_status.as_str() == "0" && current_block_height_i64 >= retrieved_block_height_in_i64
+        {
+
+            
+            // allow withdrawal
+            is_withdrawal = true;
+
+            // MODIFY 
+            // if the number of data here changed, please add here
+            // UPDATE, can make here more robust
+            // all the indexing must be 0,2,4..2n cause of the ";"
+            // get placeholder / extra character
+            let read_placeholder_index = (x * number_of_data_per_client * 2 ) + ( 0 * 2 );
+            read_placeholder = result[read_placeholder_index as usize ].clone();
+
+            // get the caller's public key
+            let read_caller_public_key_index = (x * number_of_data_per_client * 2 ) + ( 1 * 2 );
+            read_caller_public_key = result[read_caller_public_key_index as usize ].clone();
+
+            // get the sender's address 
+            let read_sender_address_index = (x * number_of_data_per_client * 2 ) + ( 2 * 2 );
+            read_sender_address = result[read_sender_address_index as usize ].clone();
+
+            // get the receiver's address 
+            let read_receiver_address_index = (x * number_of_data_per_client * 2 ) + ( 3 * 2 );
+            read_receiver_address = result[read_receiver_address_index as usize ].clone();
+
+            // get the message 
+            let read_message_index = (x * number_of_data_per_client * 2 ) + ( 4 * 2 );
+            read_message = result[read_message_index as usize ].clone();
+
+            // get the mosaic from the text file
+            let mosaic_index = (x * number_of_data_per_client * 2 ) + ( 5 * 2 );
+            mosaic = result[mosaic_index as usize ].clone();
+
+            // take the height
+            let data_block_height_index = (x * number_of_data_per_client * 2 ) + ( 6 * 2 );
+            data_block_height = result[data_block_height_index as usize ].clone();
+
+            // get the withrawal status 
+            let withdrawal_status_index = (x * number_of_data_per_client * 2 ) + ( 7 * 2 );
+            withdrawal_status = result[withdrawal_status_index as usize ].clone();
+        }
+    }
+
+    /////////////////////// find the intended withdrawal ends ///////////////////////
+
+    
+    /* 
+    /////////////////////// supercontract caller data extraction starts ///////////////////////
     // convert the height allowed to withdraw to i64
     let data_block_height_i64: i64 = match data_block_height.trim().parse() {
         Ok(integer) => integer,
@@ -367,18 +486,24 @@ pub unsafe extern "C" fn withdraw() -> u32 {
     };
     /////////////////////// supercontract caller data extraction ends ///////////////////////
     
-
+    */
 
     
     /////////////////////// transaction starts ///////////////////////
+    
+    /* 
+    // PENDING CHANGE HERE START
     // get current block height
     let current_block_height: u64 = get_block_height();
     
     // convert to i64
     let current_block_height_i64: i64 = current_block_height as i64;
+    */
 
     // check if the condition has been met
-    if current_block_height_i64 >= data_block_height_i64 && converted_withdrawal_status == 0{ 
+    if is_withdrawal == true { 
+
+    // PENDING CHANGE HERE ENDS
         
         // method 2, use the input from users
         let send_address = read_sender_address.as_str();
@@ -873,6 +998,7 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// -- for example: 3 A;key001,key008
 /// - read_buffer_modified: the output Vector that will store the contents of the file without the target inside of it
 /// - wanted_data: the target data
+/// - number_of_targets: the number of times the target appeared
 /// 
 /// # Examples
 /// ```
@@ -890,15 +1016,37 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// let mut result: Vec<String> = Vec::new();
 /// let mut data: Vec<String> = Vec::new();
 /// let mut read_buffer : Vec<String> = Vec::new();
+/// let mut number_of_targets : Vec<u8> = Vec::new();
 /// file_read("try.txt", &mut data);
-/// linear_search(&mut data, "key1", 3, &mut read_buffer, &mut result);
+/// linear_search(&mut data, "key1", 3, &mut read_buffer, &mut result, &mut number_of_targets);
+/// 
+/// // OR
+/// 
+/// let data = vec!["A" , ";" , "key1388714119416524012310222157236205981062271959714114215349145660116225218158157769" , ";" , "SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB" , ";" , "SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA" , ";" , "Bye Bye money" , ";" , "1000" , ";" , "127" , ";" , "0" , ";" , "A", ";" , "key4852455010992561212281862281822354423979131195229196811161481912253185841992247" , ";" , "SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO" ,";", "SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA" , ";" , "Here you go" , ";" , "1000" , ";" , "118" , ";" , "1" , ";", "A" , ";" , "key1388714119416524012310222157236205981062271959714114215349145660116225218158157769" , ";" , "SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB" , ";" , "SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA" , ";" , "SAYONARA" , ";" , "1000" , ";" , "127" , ";" , "0" , ";"];
+/// let mut data_array : Vec<String> = Vec::new();
+/// 
+/// for x in data{
+///    data_array.push(x.to_string());
+/// }
+/// 
+/// let target = "key1388714119416524012310222157236205981062271959714114215349145660116225218158157769";
+/// let number_of_data_per_client = 8;
+/// let mut read_buffer_modified: Vec<String> = Vec::new();
+/// let mut wanted_data: Vec<String> = Vec::new();
+/// let mut number_of_targets: Vec<u8> = Vec::new();
+/// 
+/// linear_search(&mut data_array, target, number_of_data_per_client, &mut read_buffer_modified, &mut wanted_data , &mut number_of_targets );
+/// 
 /// ```
 /// 
 /// # Notes
-fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_client:u8, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>) -> u8 {
+fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_client:u8, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>, number_of_targets: &mut Vec<u8>) -> u8 {
     // needs to return the result / status of this function
     // set 1 by default, will change to 0 if target is found
     let mut status = 1;
+
+    // this is the variable that will store the number of times that the target appeared
+    let mut number_of_targets_in_u8:u8 = 0;
 
     // MODIFY
     // this indicates the number jumps to perform 
@@ -966,6 +1114,9 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
 
             // put the data in
             wanted_data.extend_from_slice(&wanted_data_parts_in_string);
+
+            // increment the number of times the data appeared
+            number_of_targets_in_u8 += 1;
             
         }
 
@@ -1013,6 +1164,9 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
         // increment the counter
         counter += number_of_data_per_client as usize;
     }
+
+    // store the number of targets inside the array
+    number_of_targets.push(number_of_targets_in_u8);
 
     return status;
 
