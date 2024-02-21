@@ -1,7 +1,7 @@
 /*
 File name: Staking supercontract
-Version: 1.7
-Patch notes: made both use get_caller_public_key and made withdrawal no need to put parameters. Addresses security issue where other people can withdraw
+Version: 1.7.1
+Patch notes: added more comments
 
 Notes for other developers:
 - MODIFY, means for u to modify when want to use
@@ -181,6 +181,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     combined_bytes.extend_from_slice(&message_in_bytes);
     combined_bytes.extend_from_slice(&mosaic_in_bytes);
 
+    // create the aggregate transaction
     let status_create_transaction = create_aggregate_transaction(1, combined_bytes, 16724, 3);
 
     // PENDING
@@ -224,6 +225,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
     let string_to_save = format!("A;key{};{};{};{};{};{};0;", caller_public_key , sender_address , address , message , mosaic , current_block_height);
 
+    // store the string inside an array of len 1
     let mut input_array = vec![string_to_save];
 
     // store the contents of the file here
@@ -237,6 +239,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
         return 1;
     }
 
+    // appends the contents of the original file with the desired contents
     let status_append_existing = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut data, &mut input_array);
 
     // PENDING
@@ -256,46 +259,8 @@ pub unsafe extern "C" fn deposit() -> u32 {
 /// After a set time, A calls the supercontract again to withraw the deposit
 /// 
 /// # Notes 
-/// - Sometimes it does not work because of the absence of the mosaic type and amount on the left box when deploying,
-///     - Therefore, re-deploy and fill in that information, for example: Mosaic ID = 992621222383397347
-/// - It could also be, because there is no parameter / incorrect parameter
-///     - Therefore, re-deploy and fill in the correct parameter information
 #[no_mangle]
 pub unsafe extern "C" fn withdraw() -> u32 {
-
-    /* 
-    /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
-    // temp holds the cleaned up get_call_params
-    let mut temp: Vec<String> = Vec::new();
-    
-    let status_get_clean_params = get_clean_call_params(&mut temp);
-
-    // if the param calls is not valid, immediately fail
-    // PENDING, want to use panic!(); or return 1;?
-    if status_get_clean_params == 1 {
-
-        // can choose to also panic!();
-        return 1;
-    }
-
-    // to convert to pointers because rest of the code relies on &str not String
-    // .iter() is to create an iterator so that can go through all of the items in the vectr
-    // .map() is to convert the contents that is presented by the iterator
-    // .collect() is to collect all the converted components
-    let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
-
-    // obtain information, still need to be checked
-    // used as key
-    let input_sender_address = input_parts[0];
-
-    // used as verification
-    let input_address = input_parts[1];
-    let input_message = input_parts[2];
-    let input_mosaic = input_parts[3];
-
-
-    /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
-    */
 
     /////////////////////// get caller public starts ///////////////////////
     // get the caller public key
@@ -511,55 +476,13 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         // set the status to true
         result[index_status] = "1".to_string();
 
-        /* 
-        // convert the target information from String into [u8]
-        let mut converted_target_u8: Vec<u8> = result.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
-
-        // convert the exisiting data from String into [u8]
-        let mut converted_others_u8 : Vec<u8> = read_buffer.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
-        */
-
-        /* 
-        let mut converted_target_u8: Vec<u8> = Vec::new();
-        let mut converted_others_u8 : Vec<u8> = Vec::new();
-
-        let status_convert_vec_string_to_vec_u8_target = convert_string_vector_to_u8_vector(&mut result, &mut converted_target_u8);
-
-        // PENDING
-        if status_convert_vec_string_to_vec_u8_target == 1 {
-            return 1;
-        }
-
-        let status_convert_vec_string_to_vec_u8_original = convert_string_vector_to_u8_vector(&mut read_buffer, &mut converted_others_u8);
-        
-        // PENDING
-        if status_convert_vec_string_to_vec_u8_original == 1 {
-            return 1;
-        }
-
-
-        // PENDING, can use append?
-        // can if there is a function to add ";" to the read buffer
-        {
-            // re-create the file
-			let mut file = FileWriter::new("StakingSupercontractClientInformation.txt").unwrap();
-
-            // write target first
-            file.write(&converted_target_u8).unwrap();
-
-            // rewrite whole content
-            file.write(&converted_others_u8).unwrap();
-
-			file.flush().unwrap();
-		}
-        */
+       
         let status_file_append = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut read_buffer, &mut result);
 
         // PENDING
         if status_file_append == 1 {
             return 1;
         }
-
         /////////////////////// status update ends ///////////////////////
 
         return 0;
@@ -923,16 +846,16 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
     // convert the data to 
     let file_content_in_string = String::from_utf8_lossy(&file_content);
 
-
-    // PENDING
+    // this variable stores the data after being split 
     let mut data_parts = Vec::new();
+
+    // this is the method that splits the string using a delimiter while including the delimiter
     let status_split = string_spliter_terminator(file_content_in_string.to_string(), ";",&mut data_parts);
 
-
-    /* 
-    // convert the data into String
-    let data_parts: Vec<String> = file_content_in_string.split(';').map(|s| s.to_string()).collect(); 
-    */
+    // PENDING
+    if status_split == 1{
+        return 1;
+    }
 
     // combine the data to the output array / vector
     out.extend_from_slice(&data_parts);
@@ -968,7 +891,7 @@ fn file_read(file_path:&str, out:&mut Vec<String>) -> u8 {
 /// let mut data: Vec<String> = Vec::new();
 /// let mut read_buffer : Vec<String> = Vec::new();
 /// file_read("try.txt", &mut data);
-/// linear_search(&mut data, "key1", 7, &mut read_buffer, &mut result);
+/// linear_search(&mut data, "key1", 3, &mut read_buffer, &mut result);
 /// ```
 /// 
 /// # Notes
@@ -1017,9 +940,8 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
             // number_of_data_per_client + counter 
             let mut number_of_repetitions_now = 0;
 
+            // loop though the entire data for 1 client
             while number_of_repetitions_now < number_of_data_per_client {
-
-                println!("data: {} | wanted_data_parts_in_string: {:?}", data_array[word_index as usize], wanted_data_parts_in_string);
 
                 // obtains the data itself and pushes it into the vector
                 wanted_data_parts_in_string.push(data_array[word_index as usize].clone());
@@ -1044,18 +966,21 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
         // if its other keys 
         else if data_array[counter].starts_with(other_keys)
         {
+            // this is the variable that will store the data of the other clients
             let mut read_buffer_temp :Vec<String> = Vec::new();
 
             // this is the counter used to extract the information
             // -1 because of the extra character
             let mut word_index = counter as u8 - number_of_jumps;
 
+            // keeps track of how many data per customer, we have added to the list
             let mut number_of_repetitions_now = 0;
 
             // -1 because if lets say we have 7 words, we start from -1, so lets say we found the target at index 1,
             // it will be like this 0,1,2,3,4,5,6 ( inclusive )
             while number_of_repetitions_now < number_of_data_per_client {
 
+                // this is to push the data into the temp array
                 read_buffer_temp.push(data_array[word_index as usize].clone());
                 
                 // need to append the ";" for consistency 
@@ -1172,13 +1097,16 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
 
     let mut status = 0;
 
+    // this variables stores the characters that make up a string
     let mut temp: Vec<char> = Vec::new();
 
+    // to make the iter variable peekable
+    // peekable means to see the next element
     let mut char_iter = input.chars().peekable();
 
+    // iterate over all the characters in the string
     while let Some( character ) = char_iter.next()
     {
-        //println!("{}",character);
 
         // if the next character is "Something"
         // &next_char, & because if dont have it will be a reference to the char
@@ -1207,7 +1135,6 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
         // its the last string
         else
         {
-            println!("{:?} char: {}",temp,character);
 
             // this is if there is a character before the last delimiter, add it to the list first then only add the delimiter outside of the if
             if temp.len() != 0 && character.to_string() != delimiter
@@ -1222,6 +1149,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
                 // clear the contents
                 temp.clear();
             }
+            // else if the delimiter is the only content in the array
             else if temp.len() != 0 && character.to_string() == delimiter
             {
                 // push the last character in
@@ -1240,6 +1168,7 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
                 // clear the contents
                 temp.clear();
             }
+            // if there is no characters left
             else if temp.len() == 0
             {
 
@@ -1258,6 +1187,48 @@ fn string_spliter_terminator(input:String , delimiter:&str, output:&mut Vec<Stri
     return status;
 }
 
+/// # Objective
+/// This function creates a new text file, and writes the contents of the original file ( input ) and the content that wants to be appended in ( input )
+/// 
+/// # Parameters
+/// - file_path: the file name with the .txt
+/// - original_data: the original contents of the file
+/// - content: the data that wants to be appended
+/// 
+/// # Examples
+/// ```
+/// // create a file
+/// {
+///     let mut file = FileWriter::new("try.txt").unwrap();
+///     for i in 0..10 
+///     {
+///         let temp = format!("A;key{};coo{};\n",i,i);
+///         file.write(temp.as_bytes()).unwrap();
+///     }
+///     file.flush().unwrap();
+/// }
+/// 
+/// let string_to_save = format!("A;key{};{};{};{};{};{};0;", caller_public_key , sender_address , address , message , mosaic , current_block_height);
+/// // store the string inside an array of len 1
+/// let mut input_array = vec![string_to_save];
+/// // store the contents of the file here
+/// let mut data: Vec<String> = Vec::new();
+/// // read the file
+/// let status_file_read = file_read("StakingSupercontractClientInformation.txt", &mut data);
+/// // PENDING
+/// if status_file_read == 1{
+///     return 1;
+/// }
+/// // appends the contents of the original file with the desired contents
+/// let status_append_existing = file_append_with_existing("StakingSupercontractClientInformation.txt", &mut data, &mut input_array);
+/// // PENDING
+/// if status_append_existing == 1 {
+///     return 1;
+/// }
+/// ```
+/// 
+/// # Notes
+/// - If the write function in the sdk can accomodate append, this function is not needed
 fn file_append_with_existing(file_path:&str , original_data:&mut Vec<String>, content:&mut Vec<String> ) -> u32 {
     // needs to return the result / status of this function
     let mut status: u32 = 0;
@@ -1296,20 +1267,6 @@ fn file_append_with_existing(file_path:&str , original_data:&mut Vec<String>, co
         
         // flush out any remiaining data
 		file.flush().unwrap();
-	
-
-        /* 
-        // iterate over the entire list and 
-        for words in content.iter()
-        {
-            // write what is wanted
-            file.write(words.as_bytes()).unwrap();
-        }
-        
-        // flush out any remiaining data
-        
-		file.flush().unwrap();
-        */
 	}
 
     return status;
@@ -1343,17 +1300,36 @@ fn convert_string_vector_to_u8_vector(in_string_vector:&mut Vec<String> , out_u8
     return status;
 }
 
+/// # Objective
+/// This function is designed to take in a Vector of u8 and convert it into a vector of String with only 1 element
+/// 
+/// # Parameters
+/// - input_vector_u8: the Vector of u8 that wants to be converted
+/// - output_string: the Vector of String that will store the converted version 
+/// 
+/// # Examples
+/// ```
+/// let data = [4, 85, 245, 50, 109, 92, 56, 1, 21, 228, 186, 228, 182, 235, 44, 239, 79, 131, 195, 229, 196, 81, 116, 148, 191, 225, 31, 85, 84, 19, 92, 247];
+/// let mut result3 = Vec::new();
+/// let status = convert_vector_u8_to_string(data, &mut result3);
+/// ```
+/// 
+/// # Notes
+/// - the output parameter is a vector for consistency 
 fn convert_vector_u8_to_string( input_vector_u8: [u8;32] , output_string:&mut Vec<String> ) -> u8 {
     let mut status = 0;
 
+    // this array will store the String 
     let mut converted_to_string: Vec<String> = Vec::new();
 
     for x in input_vector_u8.iter(){
         converted_to_string.push(x.to_string());
     }
 
+    // this variable will hold the String
     let mut temp = converted_to_string.concat();
 
+    // push the content back to the array
     output_string.push(temp);
 
     return status;
