@@ -1,21 +1,32 @@
 /*
 File name: Staking supercontract
-Version: 1.2
-Patch notes: added get_clean_call_params() in withdrawal so that can be consistent.
+Version: 1.3
+Patch notes: added linear search to withdrawal to allow multiple contract callers and 1 contract deployer
 
 PENDING: 
 1) dont know if should have additional condition to determine if the person has withrawn or not written into the file
     1.1) i think need
 
+Notes for other developers:
+- Please change all the parts with MODIFY 
+- PENDING means awaiting confirmation 
+
 main account 
-SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;Here you go;1000
+SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO
 
 second account address
-SD635GAAXIS6EHCEBLYDHJIRIHMMYAJMMMZH3YVC;Here you go;1000
+SD635GAAXIS6EHCEBLYDHJIRIHMMYAJMMMZH3YVC
 
-send to this empty wallet so its easier to see
-SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000
+third account address
+SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB
+
+empty accoutn address 
+SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA
 address of empty wallet; message( can be anything ); mosaic
+
+Use this for new staking supercontract with linear search 
+SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000
+SAONE2UIW6DIH6BXKAW4OTF44XMJSQ23OUES6YBB;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Bye Bye money;1000
 */
 pub mod blockchain;
 pub mod dir_iterator;
@@ -31,13 +42,19 @@ use file::{FileReader, FileWriter};
 use std::io::{ Read, Write};
 
 /// # Objective
-/// This function is used to deploy the supercontract onto the blockchain
+/// This function is used to deploy the supercontract onto the blockchain and write a file 
 /// 
 /// # Notes
 /// This is the function used in the function name, along with the assignee, file name, function name, parameters
 /// 
 #[no_mangle]
 pub unsafe extern "C" fn run() -> u32 {
+
+    // creates file
+    {
+		let mut file = FileWriter::new("StakingSupercontractClientInformation.txt").unwrap();
+		file.flush().unwrap();
+	}
     return 0;
 }
 
@@ -55,7 +72,6 @@ pub unsafe extern "C" fn run() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn deposit() -> u32 {
 
-     
     /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
     // temp holds the cleaned up get_call_params
     let mut temp: Vec<String> = Vec::new();
@@ -75,10 +91,18 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // .map() is to convert the contents that is presented by the iterator
     // .collect() is to collect all the converted components
     let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
+    
+    // address of the sender
+    let sender_address = input_parts[0]; 
 
-    let address = input_parts[0]; //Address to locked place
-    let message = input_parts[1]; //Message
-    let mosaic = input_parts[2]; //Total mosaics to be send
+    // address of the receiver
+    let address = input_parts[1]; 
+
+    // message
+    let message = input_parts[2]; 
+
+    // total mosaics to be send
+    let mosaic = input_parts[3]; 
 
     // this height is used to check condition for deposit return
     // why +80? cause its only an estimation, 1 block takes approx 15seconds to build, 
@@ -93,13 +117,18 @@ pub unsafe extern "C" fn deposit() -> u32 {
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
     // has the normal file write and save the height so that can be checked here to see if condition is fulfilled or not
     // amount to transfer ||| the block height that will allow the withrawal of deposit ||| the withrawal status
-    let string_to_save = format!("{};{};0", mosaic, current_block_height);
+    let string_to_save = format!("A;key{};{};{};{};{};0;", sender_address,address,message,mosaic,current_block_height);
 
-	{
-		let mut file = FileWriter::new("DataGameDeveloper.txt").unwrap();
-		file.write(&string_to_save.as_bytes()).unwrap();
-		file.flush().unwrap();
-	}
+    // write the contents of this sender into the file
+    let status_append = append("StakingSupercontractClientInformation.txt", &string_to_save );
+
+    // if the address is not valid, immediately fail
+    // PENDING, want to use panic!(); or return 1;?
+    if status_append == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
     /////////////////////// write into file to check if return deposit is satisfied starts ///////////////////////
     
     
@@ -108,6 +137,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
     // this is the array that will store the information for the decoded address
     let mut decoded_address: Vec<u8> = Vec::new();
 
+    // converts the string address into a Vec<u8>
     let status_decode_address: u8 = decode_address_string_to_u8(address, &mut decoded_address);
 
     // if the address is not valid, immediately fail
@@ -124,6 +154,8 @@ pub unsafe extern "C" fn deposit() -> u32 {
     /////////////////////// message conversion to base 32 starts ///////////////////////
     // this is the array that will store the message in bytes
     let mut message_in_bytes: Vec<u8> = Vec::new();
+
+    // converts the message from String into Vec<u8> and attaches the type of mosaic we are transferring 
     let status_decode_message: u8 = decode_message_to_u8(message, &mut message_in_bytes, 0 );
 
     // PENDING
@@ -139,6 +171,8 @@ pub unsafe extern "C" fn deposit() -> u32 {
     /////////////////////// mosaic conversion to base 32 starts ///////////////////////
     // this is the array that will store the mosaic in bytes
     let mut mosaic_in_bytes = vec![0; 8];
+
+    // changes the amount of mosaic from String to Vec<u8>
     let status_decode_mosaic_amount = decode_mosaic_amount_to_u8(mosaic, &mut mosaic_in_bytes);
 
     // PENDING
@@ -186,83 +220,127 @@ pub unsafe extern "C" fn deposit() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn withdraw() -> u32 {
 
-    let mut file_content = Vec::new();
-    {
-        // maybe here will have error
-        // let file = FileReader::new("DataGameDeveloper.txt").unwrap();
-        // let mut reader = BufReader::new(file);
-        // reader.read_to_end(&mut file_content).unwrap();
-        let mut file = FileReader::new("DataGameDeveloper.txt").unwrap();
-        file.read_to_end(&mut file_content).unwrap();
-    }
-    let file_content_in_string = String::from_utf8_lossy(&file_content);
+    /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
+    // temp holds the cleaned up get_call_params
+    let mut temp: Vec<String> = Vec::new();
+    
+    let status_get_clean_params = get_clean_call_params(&mut temp);
 
-    // expected data
-    // 1000;40;0
-    let data_parts: Vec<&str> = file_content_in_string.split(';').collect(); 
+    // if the param calls is not valid, immediately fail
+    // PENDING, want to use panic!(); or return 1;?
+    if status_get_clean_params == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
+
+    // to convert to pointers because rest of the code relies on &str not String
+    // .iter() is to create an iterator so that can go through all of the items in the vectr
+    // .map() is to convert the contents that is presented by the iterator
+    // .collect() is to collect all the converted components
+    let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
+
+    // obtain information, still need to be checked
+    // used as key
+    let input_sender_address = input_parts[0];
+
+    // used as verification
+    let input_address = input_parts[1];
+    let input_message = input_parts[2];
+    let input_mosaic = input_parts[3];
+
+
+    /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
+    
+
+    
+    /////////////////////// read and search for the supercontract caller starts ///////////////////////
+    // this Vector will store the information about the target
+    let mut result: Vec<String> = Vec::new();
+
+    // this Vector is used to store data that exist within the file to avoid re-reading and lower the time complexity 
+    let mut data: Vec<String> = Vec::new();
+
+    // this Vector is used to store the contents of the file which is in the data variable above, but without target data
+    let mut read_buffer : Vec<String> = Vec::new();
+
+    // read the contents of the file and convert them into a Vector of String
+    let read_status = read_from_file_to_string("StakingSupercontractClientInformation.txt", &mut data);
+
+    // if the file dosent exist, immediately fail
+    // PENDING, want to use panic!(); or return 1;?
+    if read_status == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
+
+    // to format how key will look like
+    let target = format!("key{}",input_sender_address);
+
+    // to search for the data 
+    let linear_search_status = linear_search(&mut data, &target , &mut read_buffer, &mut result);
+
+    // if the key is not valid, immediately fail
+    // PENDING, want to use panic!(); or return 1;?
+    if linear_search_status == 1 {
+
+        // can choose to also panic!();
+        return 1;
+    }
+    /////////////////////// read and search for the supercontract caller ends ///////////////////////
+    
+
+
+    /////////////////////// supercontract caller data extraction starts ///////////////////////
+    // all the indexing must be 0,2,4..2n cause of the ";"
+    // get placeholder / extra character
+    let read_placeholder = result[0].clone();
+
+    // get the sender's address 
+    let read_sender_address = result[2].clone();
+
+    // get the receiver's address 
+    let read_receiver_address = result[4].clone();
+
+    let read_message = result[6].clone();
 
     // get the mosaic from the text file
-    let mosaic = data_parts[0];
+    let mosaic = result[8].clone();
 
     // take the height
-    let data_block_height = data_parts[1];
+    let data_block_height = result[10].clone();
 
     // get the withrawal status 
-    let withdrawal_status = data_parts[2];
+    let withdrawal_status = result[12].clone();
 
-    // convert to u32
+    // convert the status to u32
     let converted_withdrawal_status = withdrawal_status.parse::<u32>().unwrap();
 
-    // convert to i64
+    // convert the height allowed to withdraw to i64
     let data_block_height_i64: i64 = match data_block_height.trim().parse() {
         Ok(integer) => integer,
         Err(_) => return 99,
     };
+    /////////////////////// supercontract caller data extraction ends ///////////////////////
     
+
+
+    /////////////////////// transaction starts ///////////////////////
     // get current block height
     let current_block_height: u64 = get_block_height();
-
+    
     // convert to i64
     let current_block_height_i64: i64 = current_block_height as i64;
 
     // check if the condition has been met
-    // PENDING, cannot use >= cause if its true, it will keep sending money right?
     if current_block_height_i64 >= data_block_height_i64 && converted_withdrawal_status == 0{ 
-
-
-        /////////////////////// inputs from storage tool "parameters tab" starts ///////////////////////
-        // temp holds the cleaned up get_call_params
-        let mut temp: Vec<String> = Vec::new();
-        
-        let status_get_clean_params = get_clean_call_params(&mut temp);
-
-        // if the address is not valid, immediately fail
-        // PENDING, want to use panic!(); or return 1;?
-        if status_get_clean_params == 1 {
-
-            // can choose to also panic!();
-            return 1;
-        }
-
-        // to convert to pointers because rest of the code relies on &str not String
-        // .iter() is to create an iterator so that can go through all of the items in the vectr
-        // .map() is to convert the contents that is presented by the iterator
-        // .collect() is to collect all the converted components
-        let input_parts: Vec<&str> = temp.iter().map(|s| s.as_str()).collect();
-
-        let address = input_parts[0]; //Address to locked place
-        let message = input_parts[1]; //Message
-        let mosaic = input_parts[2]; //Total mosaics to be send
-
-        /////////////////////// inputs from storage tool "parameters tab" ends ///////////////////////
-        
-
 
         /////////////////////// address conversion to base 32 starts ///////////////////////
         // this is the array that will store the information for the decoded address
         let mut decoded_address: Vec<u8> = Vec::new();
 
-        let status_decode_address: u8 = decode_address_string_to_u8(address, &mut decoded_address);
+        let status_decode_address: u8 = decode_address_string_to_u8(&read_receiver_address, &mut decoded_address);
 
         // if the address is not valid, immediately fail
         // PENDING, want to use panic!(); or return 1;?
@@ -278,7 +356,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         /////////////////////// message conversion to base 32 starts ///////////////////////
         // this is the array that will store the message in bytes
         let mut message_in_bytes: Vec<u8> = Vec::new();
-        let status_decode_message: u8 = decode_message_to_u8(message, &mut message_in_bytes, 0 );
+        let status_decode_message: u8 = decode_message_to_u8(&read_message, &mut message_in_bytes, 0 );
 
         // PENDING
         if status_decode_message == 1{
@@ -293,7 +371,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         /////////////////////// message conversion to base 32 starts ///////////////////////
         // this is the array that will store the message in bytes
         let mut message_in_bytes: Vec<u8> = Vec::new();
-        let status_decode_message: u8 = decode_message_to_u8(message, &mut message_in_bytes, 0 );
+        let status_decode_message: u8 = decode_message_to_u8(&read_message, &mut message_in_bytes, 0 );
 
         // PENDING
         if status_decode_message == 1{
@@ -302,7 +380,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         return 1;
         }
         /////////////////////// message conversion to base 32 ends ///////////////////////
-
+        
 
 
         /////////////////////// mosaic conversion to base 32 starts ///////////////////////
@@ -314,7 +392,7 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         let mut rewarded_mosaic_in_string = String::from("");
 
         // get the clean amount of mosaic which is in String
-        let status_get_clean_rewards = get_clean_rewards(mosaic, &mut rewarded_mosaic_in_string);
+        let status_get_clean_rewards = get_clean_rewards(&mosaic, &mut rewarded_mosaic_in_string);
 
         if status_get_clean_rewards == 1{
             
@@ -353,22 +431,47 @@ pub unsafe extern "C" fn withdraw() -> u32 {
         //panic!();
         return 1;
         }
-        /////////////////////// transaction creation starts ///////////////////////
+        /////////////////////// transaction creation ends ///////////////////////
+        
         
 
+        /////////////////////// status update starts ///////////////////////
+        // change the withdrawal status to true
+        // -2 because -1 is the ";"
+        let mut index_status = result.len()-2;
+
+        // set the status to true
+        result[index_status] = "1".to_string();
+
+        // convert the target information from String into [u8]
+        let mut converted_target_u8: Vec<u8> = result.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
+
+        // convert the exisiting data from String into [u8]
+        let mut converted_others_u8 : Vec<u8> = read_buffer.clone().into_iter().flat_map(|s| s.into_bytes()).collect();
+
+
+        // PENDING, can use append?
         // to set the status of withrawal to true, so that cannot repeatedly withraw
         {
-			let mut file = FileWriter::new("DataGameDeveloper.txt").unwrap();
-			file.write(rewarded_mosaic_in_str.as_bytes()).unwrap();
-			file.write(data_block_height.as_bytes()).unwrap();
-			file.write("1".as_bytes()).unwrap();
+            // re-create the file
+			let mut file = FileWriter::new("StakingSupercontractClientInformation.txt").unwrap();
+
+            // rewrite everything first
+            file.write(&converted_target_u8).unwrap();
+
+            // write wanted contents
+            file.write(&converted_others_u8).unwrap();
+
 			file.flush().unwrap();
 		}
+        /////////////////////// status update ends ///////////////////////
 
         return 0;
     } else {
         return 99;
     }
+    /////////////////////// transaction ends ///////////////////////
+    
 }
 
 /// # Objective
@@ -672,6 +775,269 @@ fn get_clean_rewards( mosaic: &str, rewarded_mosaic_in_string: &mut String ) -> 
     // push in a reference to the string that has been converted,
     // why string? this is to keep the whole system as consistent as possible
     rewarded_mosaic_in_string.push_str(&value.to_string());
+
+    return status;
+}
+
+/// # Objective
+/// This function is used to read the contents of a file and output a Vec<String>
+/// 
+/// # Parameters
+/// - file_path: the file name with .txt
+/// - out: the Vector that will store the contents of the file
+/// 
+/// # Examples
+/// ```
+/// // create a file
+/// {
+///     let mut file = FileWriter::new("try.txt").unwrap();
+///     for i in 0..10 
+///     {
+///         let temp = format!("A;key{};coo{};\n",i,i);
+///         file.write(temp.as_bytes()).unwrap();
+///     }
+///     file.flush().unwrap();
+/// }
+/// 
+/// let mut data: Vec<String> = Vec::new();
+/// read_from_file_to_string("try.txt", &mut data);
+/// ```
+/// 
+/// # Notes
+fn read_from_file_to_string(file_path:&str, out:&mut Vec<String>) -> u8 {
+    
+    let mut status = 0;
+
+    // basic read
+    let mut file_content = Vec::new();
+    {
+        // find the file
+        let mut file = FileReader::new(file_path).unwrap();
+
+        // read everything in the file
+        file.read_to_end(&mut file_content).unwrap();
+    }
+
+    // convert the data to 
+    let file_content_in_string = String::from_utf8_lossy(&file_content);
+
+    // convert the data into String
+    let data_parts: Vec<String> = file_content_in_string.split(';').map(|s| s.to_string()).collect(); 
+
+    out.extend_from_slice(&data_parts);
+
+    return status;
+}
+
+/// # Objective
+/// This function is used to linearly search through all the contents of a file for a specific data and extract it out
+/// 
+/// # Parameters
+/// - data_array: the contents from the file in Vec<String> 
+/// - target: the String we are looking for
+/// - read_buffer_modified: the output Vector that will store the contents of the file without the target inside of it
+/// - wanted_data: the target data
+/// 
+/// # Examples
+/// ```
+/// // create a file
+/// {
+///     let mut file = FileWriter::new("try.txt").unwrap();
+///     for i in 0..10 
+///     {
+///         let temp = format!("A;key{};coo{};\n",i,i);
+///         file.write(temp.as_bytes()).unwrap();
+///     }
+///     file.flush().unwrap();
+/// }
+/// 
+/// let mut result: Vec<String> = Vec::new();
+/// let mut data: Vec<String> = Vec::new();
+/// let mut read_buffer : Vec<String> = Vec::new();
+/// read_from_file_to_string("try.txt", &mut data);
+/// linear_search(&mut data, "key1", &mut read_buffer, &mut result);
+/// ```
+/// 
+/// # Notes
+fn linear_search( data_array:&mut Vec<String>, target:&str, read_buffer_modified:&mut Vec<String>, wanted_data:&mut Vec<String>) -> u8 {
+
+    // set 1 by degault, will change to 0 if target is found
+    let mut status = 1;
+
+    // while loop counter 
+    let mut counter = 0;
+
+    // NEEDED
+    // please input the string here that will represent the prefix of the keys
+    let other_keys = "key";
+
+    // to loop through every data
+    while counter < data_array.len() 
+    {
+
+        // if the data is the same as the target
+        if data_array[counter] == target
+        {
+            status = 0;
+
+            // this variable holds the data in String type
+            let mut wanted_data_parts_in_string: Vec<String> = Vec::new();
+
+            // must +2 or not won't work, 
+            // when adding the value, must be > 1 or wont work
+            // eg: a;key1,coo1,potato
+            // needs to be +3 because it will exclude the last index means, if lets say we found key1 at index 0
+            // it will be data_array[0..4] excluding item at index 4  
+
+            // sammple data:
+            // A;keySD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO;SBA3E4YPFXSDB4I6TXSRVDG6TZAOLP244AQSE3QA;Here you go;1000;329;0
+
+            // wanted_data_parts_in_string.extend_from_slice(&data_array[index-1..index+2] );
+            wanted_data_parts_in_string.push(data_array[counter-1].clone());
+            
+            // need to append the ";" for consistency 
+            wanted_data_parts_in_string.push(";".to_string());
+
+            // push the sender address / key
+            wanted_data_parts_in_string.push(data_array[counter].clone());
+            wanted_data_parts_in_string.push(";".to_string());
+
+            // push the receiver address 
+            wanted_data_parts_in_string.push(data_array[counter+1].clone());
+            wanted_data_parts_in_string.push(";".to_string());
+
+            // push the message
+            wanted_data_parts_in_string.push(data_array[counter+2].clone());
+            wanted_data_parts_in_string.push(";".to_string());
+
+            // push the mosaic
+            wanted_data_parts_in_string.push(data_array[counter+3].clone());
+            wanted_data_parts_in_string.push(";".to_string());
+
+            // push the current block height
+            wanted_data_parts_in_string.push(data_array[counter+4].clone());
+            wanted_data_parts_in_string.push(";".to_string());
+
+            // push status
+            wanted_data_parts_in_string.push(data_array[counter+5].clone());
+            wanted_data_parts_in_string.push(";".to_string());
+
+            // put the data in
+            wanted_data.extend_from_slice(&wanted_data_parts_in_string);
+            
+        }
+
+        // if its other keys 
+        else if data_array[counter].starts_with(other_keys)
+        {
+            let mut read_buffer_temp :Vec<String> = Vec::new();
+
+            
+            // read_buffer_temp.extend_from_slice(&data_array[index-1..index+2] );
+            read_buffer_temp.push(data_array[counter-1].clone());
+            
+            // need to append the ";" for consistency 
+            read_buffer_temp.push(";".to_string());
+
+            // push the sender address / key
+            read_buffer_temp.push(data_array[counter].clone());
+            read_buffer_temp.push(";".to_string());
+
+            // push the receiver address 
+            read_buffer_temp.push(data_array[counter+1].clone());
+            read_buffer_temp.push(";".to_string());
+
+            // push the message
+            read_buffer_temp.push(data_array[counter+2].clone());
+            read_buffer_temp.push(";".to_string());
+
+            // push the mosaic
+            read_buffer_temp.push(data_array[counter+3].clone());
+            read_buffer_temp.push(";".to_string());
+
+            // push the current block height
+            read_buffer_temp.push(data_array[counter+4].clone());
+            read_buffer_temp.push(";".to_string());
+
+            // push status
+            read_buffer_temp.push(data_array[counter+5].clone());
+            read_buffer_temp.push(";".to_string());
+
+            // put the data in
+            read_buffer_modified.extend_from_slice(&read_buffer_temp);
+            
+        }
+        else
+        {}
+        
+        // PENDING
+        // can increase the counter to reduce time complexity
+        // increment the counter
+        counter += 1;
+    }
+
+    return status;
+
+}
+
+/// # Objective
+/// This function is used to append a string into an existing file by reading the contents of the original file and then re-writting the contents and the string that wants to be written
+/// The reason for this, is due to the limitation of the file sdk where append was not possible
+/// 
+/// # Parameters
+/// - file_path: the file name with the .txt
+/// - content: the String in the type Vec<u8> to put inside the file
+/// 
+/// # Examples
+/// ```
+/// // create a file
+/// {
+///     let mut file = FileWriter::new("try.txt").unwrap();
+///     for i in 0..10 
+///     {
+///         let temp = format!("A;key{};coo{};\n",i,i);
+///         file.write(temp.as_bytes()).unwrap();
+///     }
+///     file.flush().unwrap();
+/// }
+/// 
+/// // this is the text
+/// let temp = Vec::from("cool\n");
+/// append("try.txt", temp);
+/// ```
+/// 
+/// # Notes
+#[no_mangle]
+fn append(file_path:&str , content: &String ) -> u32 {
+
+    let mut status: u32 = 0;
+    
+    // this variable stores the information from the reader
+    let mut file_content = Vec::new();
+    {
+        // find the file
+        let mut file = FileReader::new(file_path).unwrap();
+
+        // read everything in the file
+        file.read_to_end(&mut file_content).unwrap();
+    }
+
+    // convert the information into utf8
+    let file_content_in_string = String::from_utf8_lossy(&file_content);
+
+	{
+        // create a file
+		let mut file = FileWriter::new(file_path).unwrap();
+
+        // rewrite everything that existed already
+        file.write(file_content_in_string.as_bytes()).unwrap();
+
+        // write what is wanted
+        file.write(content.as_bytes()).unwrap();
+        
+        // flush out any remiaining data
+		file.flush().unwrap();
+	}
 
     return status;
 }
