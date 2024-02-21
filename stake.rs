@@ -1,10 +1,10 @@
 /*
 File name: Staking supercontract
-Version: 1.7.1
-Patch notes: added more comments
+Version: 1.7.2
+Patch notes: added higher increments for linear search so its no longer +1 but +number of words per client
 
 Notes for other developers:
-- MODIFY, means for u to modify when want to use
+- MODIFY, means for u to modify when want to use, potential areas with bugs 
 - PENDING, means awaiting confirmation 
 - UPDATE, means for future updates
 
@@ -902,10 +902,16 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
 
     // MODIFY
     // this indicates the number jumps to perform 
-    let number_of_jumps = 2;
+    let number_of_jumps: u8 = 2;
 
+    // MODIFY
+    // if there is like elements infront of the key besides the extra character, need to remove this
     // while loop counter 
-    let mut counter = 0;
+    // set the initial counter value to the first key which is at index what ever the number of jumps is.
+    // For example if the number of jumps = 2
+    // example string: A;key1
+    // key1 is at index 2
+    let mut counter = number_of_jumps as usize;
 
     // MODIFY
     // please input the string here that will represent the prefix of the keys
@@ -1001,10 +1007,11 @@ fn linear_search( data_array:&mut Vec<String>, target:&str, number_of_data_per_c
         else
         {}
         
-        // PENDING
+        // MODIFY
+        // if there is bug, here could be the issue
         // can increase the counter to reduce time complexity
         // increment the counter
-        counter += 1;
+        counter += number_of_data_per_client as usize;
     }
 
     return status;
