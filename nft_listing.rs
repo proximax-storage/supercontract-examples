@@ -20,7 +20,7 @@ pub unsafe extern "C" fn deposit() -> u32 {
 
 // Read data from file and check if value matches that of input
 #[no_mangle]
-pub unsafe extern "C" fn run() -> u32 {
+pub unsafe extern "C" fn buy() -> u32 {
     let mosaic = get_service_payments();
 
     if mosaic.len() != 2 {
