@@ -1,0 +1,1 @@
+This contract transfer xpx to specific account's address.
