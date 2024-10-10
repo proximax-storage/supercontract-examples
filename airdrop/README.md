@@ -15,6 +15,12 @@ Set participate fee (gas fee for airdrop transaction)
 
 Input fee in parameter field: ```100``` (example)
 
+#### ```set_end_height()```
+
+Set last block height to join the airdrop
+
+Input height in parameter field: ```10 000``` (example)
+
 #### ```deposit()```
 
 SC creator deposit token to airdrop into the SC
@@ -82,6 +88,10 @@ Get total airdrop amount
 #### ```get_participate_fee()```
 
 Get participate fee
+
+#### ```get_end_height()```
+
+Get last height to join the airdrop
 
 #### ```get_participant()```
 

@@ -67,6 +67,29 @@ pub unsafe extern "C" fn set_airdrop_divisibility() -> u32 {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn set_end_height() -> u32 {
+    // if get_caller_public_key() != "".as_bytes() {
+    //     return 2;
+    // }
+
+    let input = get_call_params();
+    {
+        let mut file = match FileWriter::new("airdrop_end") {
+            Ok(f) => f,
+            Err(_) => return 2,
+        };
+
+        if file.write(&input).is_err() {
+            return 2;
+        }
+        if file.flush().is_err() {
+            return 2;
+        }
+    }
+    return 0;
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn set_participate_fee() -> u32 {
     // if get_caller_public_key() != "".as_bytes() {
     //     return 2;
@@ -148,6 +171,10 @@ pub unsafe extern "C" fn prejoin() -> u32 {
 
 #[no_mangle]
 pub unsafe extern "C" fn join() -> u32 {
+    if get_block_height >= get_end_height {
+        return 2;
+    }
+    
     let mosaics = get_service_payments();
     let participate_fee = get_participate_fee();
     let mut amount = mosaics[0].amount;
@@ -330,6 +357,34 @@ pub unsafe fn get_participate_fee() -> u64 {
     };
     
     fee_u64
+}
+
+pub unsafe fn get_end_height() -> u64 {
+    let mut byte: Vec<u8> = Vec::new();
+    
+    {
+        let mut file = match FileReader::new("airdrop_end") {
+            Ok(f) => f,
+            Err(_) => panic!(),
+        };
+
+        if file.read_to_end(&mut byte).is_err() {
+            print_log("failed to read participant file");
+            panic!();
+        }
+    }
+
+    let fee_str = match str::from_utf8(&byte) {
+        Ok(s) => s,
+        Err(_) => panic!(),
+    };
+
+    let fee_u64: u64 = match fee_str.parse() {
+        Ok(n) => n,
+        Err(_) => panic!(),
+    };
+    
+    height_u64
 }
 
 pub unsafe fn get_airdrop_amount() -> u64 {
