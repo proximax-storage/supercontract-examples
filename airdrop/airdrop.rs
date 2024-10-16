@@ -4,7 +4,7 @@ pub mod file;
 pub mod filesystem;
 pub mod internet;
 
-use blockchain::{get_call_params, get_service_payments, print_log, AggregateTransaction, EmbeddedTransaction};
+use blockchain::{get_block_height, get_call_params, get_service_payments, print_log, AggregateTransaction, EmbeddedTransaction};
 use file::{FileReader, FileWriter};
 
 use core::{panic, str};
@@ -171,7 +171,7 @@ pub unsafe extern "C" fn prejoin() -> u32 {
 
 #[no_mangle]
 pub unsafe extern "C" fn join() -> u32 {
-    if get_block_height >= get_end_height {
+    if get_block_height() >= get_end_height() {
         return 2;
     }
     
@@ -374,12 +374,12 @@ pub unsafe fn get_end_height() -> u64 {
         }
     }
 
-    let fee_str = match str::from_utf8(&byte) {
+    let height_str = match str::from_utf8(&byte) {
         Ok(s) => s,
         Err(_) => panic!(),
     };
 
-    let fee_u64: u64 = match fee_str.parse() {
+    let height_u64: u64 = match height_str.parse() {
         Ok(n) => n,
         Err(_) => panic!(),
     };

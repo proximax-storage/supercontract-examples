@@ -40,7 +40,7 @@ amount of airdrop: 2000
 
 #### ```distribute()```
 
-Distribute airdrop based on total participate amount ratio
+Distribute airdrop based on participate amount ratio
 
 #### ```autorun.rs```
 
@@ -50,7 +50,7 @@ In this example, this airdrop will release when height is equal to ```20000```
 
 autorun.rs is triggered everytimes new block height is generated. It will check the condition, if condition is met, it will call the ```distribute()```.
 
-How to use:
+**How to use:**
 
 In the storage user app, input following parameters.
 
@@ -68,7 +68,7 @@ Automatic Download Call Payment (fee to download file if any): 0
 ## User's functions
 #### ```join()```
 
-To participate in the airdrop.
+To participate the airdrop.
 
 Participate_amount = amount-participate_fee
 
