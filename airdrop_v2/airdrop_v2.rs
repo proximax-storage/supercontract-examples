@@ -148,13 +148,13 @@ pub unsafe extern "C" fn join() -> u32 {
         panic!();
     }
 
-    // let mosaics = get_service_payments();
-    // let participate_fee = get_participate_fee();
-    // let amount = mosaics[0].amount;
+    let mosaics = get_service_payments();
+    let participate_fee = get_participate_fee();
+    let amount = mosaics[0].amount;
 
-    // if amount < participate_fee {
-    //     panic!();
-    // }
+    if amount < participate_fee {
+        panic!();
+    }
 
     let mut input = get_call_params();
     let address = str::from_utf8(&input).unwrap();
@@ -178,47 +178,49 @@ pub unsafe extern "C" fn join() -> u32 {
     }
     append_participant("participant", &input);
 
-    // // aggregate txn
-    // let mut aggregate = AggregateTransaction::default();
-    // aggregate.set_max_fee(1);
+    // aggregate txn
+    let mut aggregate = AggregateTransaction::default();
+    aggregate.set_max_fee(1);
 
-    // // generate payload
-    // let mosaic = get_service_payments();
-    // let address = "SB3Z7PF6P5WFNSJLLCPZAENN32XR7BHINFWJR6L6";
-    // let mut address_byte = encode_address(address);
-    // let mosaic_id = mosaic.get(0).unwrap().mosaic_id.to_le_bytes();
-    // let mosaic_amount = mosaic.get(0).unwrap().amount.to_le_bytes();
-    // address_byte.extend_from_slice(&vec![1, 0, 1, 0]);
-    // address_byte.extend_from_slice(&mosaic_id);
-    // address_byte.extend_from_slice(&mosaic_amount);
+    // generate payload
+    let address = "SB3Z7PF6P5WFNSJLLCPZAENN32XR7BHINFWJR6L6";
+    let mut address_byte = encode_address(address);
+    let mosaic_id = mosaics.get(0).unwrap().mosaic_id.to_le_bytes();
+    let mosaic_amount = mosaics.get(0).unwrap().amount.to_le_bytes();
+    address_byte.extend_from_slice(&vec![1, 0, 1, 0]);
+    address_byte.extend_from_slice(&mosaic_id);
+    address_byte.extend_from_slice(&mosaic_amount);
 
-    // // embedded txn
-    // let mut embedded = EmbeddedTransaction::default();
-    // embedded.set_entity_type(16724);
-    // embedded.set_version(3);
-    // embedded.set_payload(address_byte);
-    // aggregate.add_embedded_transaction(embedded);
-    // blockchain::set_transaction(&aggregate);
+    // embedded txn
+    let mut embedded = EmbeddedTransaction::default();
+    embedded.set_entity_type(16724);
+    embedded.set_version(3);
+    embedded.set_payload(address_byte);
+    aggregate.add_embedded_transaction(embedded);
+    blockchain::set_transaction(&aggregate);
     return 0;
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn distribute() -> u32 {
-    if get_block_height() > get_end_height() {
+    // if get_block_height() > get_end_height() {
+    if get_block_height() > 0 {
+        let chunk_size = 1000;
+
         let prejoin = get_participant("prejoin");
         let count_prejoin = get_prejoin_count();
-        let chunks_prejoin = split_into_chunks(prejoin, 1000);
+        let chunks_prejoin = split_into_chunks(prejoin, chunk_size);
 
         let participant = get_participant("participant");
-        let count_participant = get_prejoin_count();
-        let chunks_participant = split_into_chunks(participant.clone(), 1000);
+        let count_participant = get_participant_count();
+        let chunks_participant = split_into_chunks(participant.clone(), chunk_size);
 
         const SLICE: [u8; 4] = [1, 0, 1, 0];
         let mosaic_id: u64 = get_airdrop_id();
         let mut total_airdrop = get_airdrop_amount();
         let mut aggregate = AggregateTransaction::default();
         aggregate.set_max_fee(10000000);
-
+        
         if count_prejoin < chunks_prejoin.len().try_into().unwrap() {
             let chunk = &chunks_prejoin[count_prejoin as usize];
             for (address, amount) in chunk {
@@ -230,8 +232,6 @@ pub unsafe extern "C" fn distribute() -> u32 {
                 payload.extend_from_slice(&mosaic_id.to_le_bytes());
                 payload.extend_from_slice(&amount.to_le_bytes());
 
-                print_log(&address);
-                print_log(&amount.to_string());
                 // embedded txn
                 let mut embedded = EmbeddedTransaction::default();
                 embedded.set_entity_type(16724);
@@ -261,8 +261,6 @@ pub unsafe extern "C" fn distribute() -> u32 {
                 payload.extend_from_slice(&mosaic_id.to_le_bytes());
                 payload.extend_from_slice(&reward.to_le_bytes());
 
-                print_log(&address);
-                print_log(&reward.to_string());
                 // embedded txn
                 let mut embedded = EmbeddedTransaction::default();
                 embedded.set_entity_type(16724);
@@ -507,7 +505,7 @@ pub unsafe fn get_prejoin_count() -> u64 {
     let mut bytes: Vec<u8> = Vec::new();
 
     {
-        let mut file = match FileReader::new("participant_count") {
+        let mut file = match FileReader::new("prejoin_count") {
             Ok(f) => f,
             Err(_) => panic!(),
         };
