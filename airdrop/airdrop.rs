@@ -15,29 +15,29 @@ pub unsafe extern "C" fn init() -> u32 {
     {
         let mut file = match FileWriter::new("participant") {
             Ok(f) => f,
-            Err(_) => return 2,
+            Err(_) => panic!(),
         };
 
         if file.write(&[]).is_err() {
-            return 2;
+            panic!();
         }
 
         if file.flush().is_err() {
-            return 2;
+            panic!();
         }
     }
     {
         let mut file = match FileWriter::new("prejoin") {
             Ok(f) => f,
-            Err(_) => return 2,
+            Err(_) => panic!(),
         };
 
         if file.write(&[]).is_err() {
-            return 2;
+            panic!();
         }
 
         if file.flush().is_err() {
-            return 2;
+            panic!();
         }
     }
     {
@@ -73,36 +73,36 @@ pub unsafe extern "C" fn init() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn deposit() -> u32 {
     // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
+    //     panic!();
     // }
 
     let mosaic = &get_service_payments()[0];
     {
         let mut file = match FileWriter::new("airdrop_id") {
             Ok(f) => f,
-            Err(_) => return 2,
+            Err(_) => panic!(),
         };
 
         if file.write(&mosaic.mosaic_id.to_le_bytes()).is_err() {
-            return 2;
+            panic!();
         }
 
         if file.flush().is_err() {
-            return 2;
+            panic!();
         }
     }
     {
         let mut file = match FileWriter::new("airdrop_amount") {
             Ok(f) => f,
-            Err(_) => return 2,
+            Err(_) => panic!(),
         };
 
         if file.write(&mosaic.amount.to_le_bytes()).is_err() {
-            return 2;
+            panic!();
         }
 
         if file.flush().is_err() {
-            return 2;
+            panic!();
         }
     }
 
@@ -113,23 +113,23 @@ pub unsafe extern "C" fn deposit() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn prejoin() -> u32 {
     // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
+    //     panic!();
     // }
 
     let input = get_call_params();
 
     if input.len() < 40 {
         print_log("no 40 len");
-        return 2; // Ensure input is at least 40 bytes long
+        panic!(); // Ensure input is at least 40 bytes long
     }
 
     let (address_bytes, amount_bytes) = input.split_at(40);
     let amount_u64: u64 = match std::str::from_utf8(amount_bytes) {
         Ok(amount_str) => match amount_str.parse::<u64>() {
             Ok(t) => t,
-            Err(_) => return 2, // Return error if parsing fails
+            Err(_) => panic!(), // Return error if parsing fails
         },
-        Err(_) => return 2, // Return error if UTF-8 conversion fails
+        Err(_) => panic!(), // Return error if UTF-8 conversion fails
     };
     let mut data: Vec<u8> = Vec::with_capacity(40 + 8);
     data.extend_from_slice(address_bytes);
@@ -142,7 +142,7 @@ pub unsafe extern "C" fn prejoin() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn join() -> u32 {
     if get_block_height() >= get_end_height() {
-        return 2;
+        panic!();
     }
     
     let mosaics = get_service_payments();
@@ -150,7 +150,7 @@ pub unsafe extern "C" fn join() -> u32 {
     let mut amount = mosaics[0].amount;
 
     if amount < participate_fee + 1 {
-        return 2;
+        panic!();
     }
 
     amount -= participate_fee;
@@ -186,7 +186,7 @@ pub unsafe extern "C" fn join() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn distribute() -> u32 {
     // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
+    //     panic!();
     // }
 
     if get_block_height() > get_end_height() {
@@ -270,21 +270,21 @@ pub unsafe extern "C" fn distribute() -> u32 {
 // #[no_mangle]
 // pub unsafe extern "C" fn set_airdrop_divisibility() -> u32 {
 //     // if get_caller_public_key() != "".as_bytes() {
-//     //     return 2;
+//     //     panic!();
 //     // }
 
 //     let input = get_call_params();
 //     {
 //         let mut file = match FileWriter::new("airdrop_div") {
 //             Ok(f) => f,
-//             Err(_) => return 2,
+//             Err(_) => panic!(),
 //         };
 
 //         if file.write(&input).is_err() {
-//             return 2;
+//             panic!();
 //         }
 //         if file.flush().is_err() {
-//             return 2;
+//             panic!();
 //         }
 //     }
 //     return 0;
@@ -293,21 +293,21 @@ pub unsafe extern "C" fn distribute() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn set_end_height() -> u32 {
     // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
+    //     panic!();
     // }
 
     let input = get_call_params();
     {
         let mut file = match FileWriter::new("airdrop_end") {
             Ok(f) => f,
-            Err(_) => return 2,
+            Err(_) => panic!(),
         };
 
         if file.write(&input).is_err() {
-            return 2;
+            panic!();
         }
         if file.flush().is_err() {
-            return 2;
+            panic!();
         }
     }
     return 0;
@@ -316,7 +316,7 @@ pub unsafe extern "C" fn set_end_height() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn set_participate_fee() -> u32 {
     // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
+    //     panic!();
     // }
 
     let input = get_call_params();
