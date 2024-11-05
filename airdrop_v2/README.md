@@ -1,4 +1,15 @@
 ## Owner only functions
+
+### Airdrop calculation
+
+reward = X/Y*Z
+
+X= your lowest balance between block y and block z
+
+Y= sum total of all participants' lowest balance between block y and block z.
+
+Z= total airdrop
+
 #### ```init()```
 
 Initialize airdrop supercontract
@@ -76,7 +87,7 @@ Participate_amount = amount-participate_fee
 
 Input address in parameter field: SABNXKV3DLHWCL5IXBQRAUF3SM7HBYFG7SPA2B5T (example)
 
-Input amount of xpx to participate in service payment field: xpx mosaic id and amount
+Input participate fee in service payment field: xpx mosaic id and amount
 
 *** Operation require execution payment and download payment
 
@@ -88,6 +99,10 @@ Get airdrop mosaic id
 #### ```get_airdrop_amount()```
 
 Get total airdrop amount
+
+#### ```set_airdrop_amount()```
+
+Set total airdrop amount
 
 #### ```get_participate_fee()```
 

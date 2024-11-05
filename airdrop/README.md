@@ -1,4 +1,15 @@
 ## Owner only functions
+
+### Airdrop calculation
+
+reward = X/Y*Z
+
+X= total_airdrop
+
+Y= total_xpx_participanted
+
+Z= xpx_participated
+
 #### ```init()```
 
 Initialize airdrop supercontract
@@ -85,6 +96,10 @@ Get airdrop mosaic id
 
 Get total airdrop amount
 
+#### ```set_airdrop_amount()```
+
+Set total airdrop amount
+
 #### ```get_participate_fee()```
 
 Get participate fee
@@ -104,6 +119,22 @@ Append participant into file for record purposes
 #### ```get_divisibility()```
 
 Get token divisibility
+
+#### ```get_prejoin_count()```
+
+Read get prejoin counter for airdrop purpose
+
+#### ```set_prejoin_count()```
+
+Set prejoin counter for airdrop purpose
+
+#### ```get_participant_count()```
+
+Read get participant counter for airdrop purpose
+
+#### ```set_participant_count()```
+
+Set participant counter for airdrop purpose
 
 #### ```encode_address()```
 
