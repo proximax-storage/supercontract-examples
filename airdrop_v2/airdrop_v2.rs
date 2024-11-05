@@ -203,8 +203,7 @@ pub unsafe extern "C" fn join() -> u32 {
 
 #[no_mangle]
 pub unsafe extern "C" fn distribute() -> u32 {
-    // if get_block_height() > get_end_height() {
-    if get_block_height() > 0 {
+    if get_block_height() > get_end_height() {
         let chunk_size = 1000;
 
         let prejoin = get_participant("prejoin");
@@ -501,6 +500,29 @@ pub unsafe fn set_airdrop_amount(total_airdrop: u64) {
     }
 }
 
+pub unsafe fn get_airdrop_id() -> u64 {
+    let mut byte: Vec<u8> = Vec::new();
+
+    {
+        let mut file = match FileReader::new("airdrop_id") {
+            Ok(f) => f,
+            Err(_) => panic!(),
+        };
+
+        if file.read_to_end(&mut byte).is_err() {
+            print_log("failed to read airdrop_id file");
+            panic!();
+        }
+    }
+
+    if byte.len() == 8 {
+        let arr: [u8; 8] = byte.try_into().expect("Vector has incorrect length");
+        return u64::from_le_bytes(arr);
+    } else {
+        return 0;
+    }
+}
+
 pub unsafe fn get_prejoin_count() -> u64 {
     let mut bytes: Vec<u8> = Vec::new();
 
@@ -578,29 +600,6 @@ pub unsafe fn set_participant_count(count: u64) {
             print_log("failed to flush participant file");
             panic!();
         }
-    }
-}
-
-pub unsafe fn get_airdrop_id() -> u64 {
-    let mut byte: Vec<u8> = Vec::new();
-
-    {
-        let mut file = match FileReader::new("airdrop_id") {
-            Ok(f) => f,
-            Err(_) => panic!(),
-        };
-
-        if file.read_to_end(&mut byte).is_err() {
-            print_log("failed to read airdrop_id file");
-            panic!();
-        }
-    }
-
-    if byte.len() == 8 {
-        let arr: [u8; 8] = byte.try_into().expect("Vector has incorrect length");
-        return u64::from_le_bytes(arr);
-    } else {
-        return 0;
     }
 }
 
