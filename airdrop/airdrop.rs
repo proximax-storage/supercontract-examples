@@ -40,65 +40,33 @@ pub unsafe extern "C" fn init() -> u32 {
             return 2;
         }
     }
-    return 0;
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn set_airdrop_divisibility() -> u32 {
-    // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
-    // }
-
-    let input = get_call_params();
     {
-        let mut file = match FileWriter::new("airdrop_div") {
+        let mut file = match FileWriter::new("prejoin_count") {
             Ok(f) => f,
-            Err(_) => return 2,
+            Err(_) => panic!(),
         };
-
-        if file.write(&input).is_err() {
-            return 2;
+        if file.write(&[0, 0, 0, 0, 0, 0, 0, 0]).is_err() {
+            panic!();
         }
+
         if file.flush().is_err() {
-            return 2;
+            panic!();
         }
     }
-    return 0;
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn set_end_height() -> u32 {
-    // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
-    // }
-
-    let input = get_call_params();
     {
-        let mut file = match FileWriter::new("airdrop_end") {
+        let mut file = match FileWriter::new("participant_count") {
             Ok(f) => f,
-            Err(_) => return 2,
+            Err(_) => panic!(),
         };
 
-        if file.write(&input).is_err() {
-            return 2;
+        if file.write(&[0, 0, 0, 0, 0, 0, 0, 0]).is_err() {
+            panic!();
         }
+
         if file.flush().is_err() {
-            return 2;
+            panic!();
         }
     }
-    return 0;
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn set_participate_fee() -> u32 {
-    // if get_caller_public_key() != "".as_bytes() {
-    //     return 2;
-    // }
-
-    let input = get_call_params();
-    let mut file = FileWriter::new("participate_fee").unwrap();
-    file.write(&input).unwrap();
-    file.flush().unwrap();
     return 0;
 }
 
@@ -137,6 +105,8 @@ pub unsafe extern "C" fn deposit() -> u32 {
             return 2;
         }
     }
+
+    
     return 0;
 }
 
@@ -219,74 +189,142 @@ pub unsafe extern "C" fn distribute() -> u32 {
     //     return 2;
     // }
 
-    const SLICE: [u8; 4] = [1, 0, 1, 0];
-    let mosaic_id: u64 = get_airdrop_id();
-    let mut total_airdrop = get_airdrop_amount();
+    if get_block_height() > get_end_height() {
+        let chunk_size = 1000;
 
-    if total_airdrop <= 0 {
-        return 2;
-    }
-    
-    let mut aggregate = AggregateTransaction::default();
-    aggregate.set_max_fee(100);
-    let prejoin = get_participant("prejoin");
-    for (address, amount) in &prejoin{
-        print_log(&total_airdrop.to_string());
-        let mut payload: Vec<u8> = Vec::with_capacity(45);
-        let address_byte = encode_address(address);
+        let prejoin = get_participant("prejoin");
+        let count_prejoin = get_prejoin_count();
+        let chunks_prejoin = split_into_chunks(prejoin, chunk_size);
+
+        let participant = get_participant("participant");
+        let count_participant = get_participant_count();
+        let chunks_participant = split_into_chunks(participant.clone(), chunk_size);
+
+        const SLICE: [u8; 4] = [1, 0, 1, 0];
+        let mosaic_id: u64 = get_airdrop_id();
+        let mut total_airdrop = get_airdrop_amount();
+        let mut aggregate = AggregateTransaction::default();
+        aggregate.set_max_fee(10000000);
         
-        payload.extend_from_slice(&address_byte);
-        payload.extend_from_slice(&SLICE);
-        payload.extend_from_slice(&mosaic_id.to_le_bytes());
-        payload.extend_from_slice(&amount.to_le_bytes());
-        
-        // embedded txn
-        let mut embedded = EmbeddedTransaction::default();
-        embedded.set_entity_type(16724);
-        embedded.set_version(3);
-        embedded.set_payload(payload);
-        aggregate.add_embedded_transaction(embedded);
+        if count_prejoin < chunks_prejoin.len().try_into().unwrap() {
+            let chunk = &chunks_prejoin[count_prejoin as usize];
+            for (address, amount) in chunk {
+                let mut payload: Vec<u8> = Vec::with_capacity(45);
+                let address_byte = encode_address(address);
 
-        total_airdrop = total_airdrop - amount;
-        print_log(&total_airdrop.to_string());
+                payload.extend_from_slice(&address_byte);
+                payload.extend_from_slice(&SLICE);
+                payload.extend_from_slice(&mosaic_id.to_le_bytes());
+                payload.extend_from_slice(&amount.to_le_bytes());
+
+                // embedded txn
+                let mut embedded = EmbeddedTransaction::default();
+                embedded.set_entity_type(16724);
+                embedded.set_version(3);
+                embedded.set_payload(payload);
+                aggregate.add_embedded_transaction(embedded);
+
+                total_airdrop = total_airdrop - amount;
+            }
+            set_airdrop_amount(total_airdrop);
+            set_prejoin_count(count_prejoin+1);
+            print_log("End of prejoin chunk processing.");
+            blockchain::set_transaction(&aggregate);
+            
+            return 0;
+        } else if count_participant < chunks_participant.len().try_into().unwrap() {
+            let chunk = &chunks_participant[count_participant as usize];
+            let total_xpx: u64 = participant.iter().map(|(_, amount)| amount).sum();
+            let cake = total_airdrop/total_xpx;
+
+            for (address, amount) in chunk {
+                let mut payload: Vec<u8> = Vec::with_capacity(45);
+                let address_byte = encode_address(address);
+                let reward: u64 = amount*cake;
+
+                payload.extend_from_slice(&address_byte);
+                payload.extend_from_slice(&SLICE);
+                payload.extend_from_slice(&mosaic_id.to_le_bytes());
+                payload.extend_from_slice(&reward.to_le_bytes());
+
+                // embedded txn
+                let mut embedded = EmbeddedTransaction::default();
+                embedded.set_entity_type(16724);
+                embedded.set_version(3);
+                embedded.set_payload(payload);
+                aggregate.add_embedded_transaction(embedded);
+            }
+            set_participant_count(count_participant+1);
+            print_log("End of participant chunk processing.");
+            blockchain::set_transaction(&aggregate);
+            return 0;
+        } else {
+            print_log("All data has been transferred.");
+            return 0;
+        }
+    } else {
+        return 0;
     }
+}
 
-    // read participant file
-    let participant = get_participant("participant");
-    let total_xpx: u64 = participant.iter().map(|(_, amount)| amount).sum();
-    
-    if total_xpx <= 0 {
-        return 2;
+// #[no_mangle]
+// pub unsafe extern "C" fn set_airdrop_divisibility() -> u32 {
+//     // if get_caller_public_key() != "".as_bytes() {
+//     //     return 2;
+//     // }
+
+//     let input = get_call_params();
+//     {
+//         let mut file = match FileWriter::new("airdrop_div") {
+//             Ok(f) => f,
+//             Err(_) => return 2,
+//         };
+
+//         if file.write(&input).is_err() {
+//             return 2;
+//         }
+//         if file.flush().is_err() {
+//             return 2;
+//         }
+//     }
+//     return 0;
+// }
+
+#[no_mangle]
+pub unsafe extern "C" fn set_end_height() -> u32 {
+    // if get_caller_public_key() != "".as_bytes() {
+    //     return 2;
+    // }
+
+    let input = get_call_params();
+    {
+        let mut file = match FileWriter::new("airdrop_end") {
+            Ok(f) => f,
+            Err(_) => return 2,
+        };
+
+        if file.write(&input).is_err() {
+            return 2;
+        }
+        if file.flush().is_err() {
+            return 2;
+        }
     }
-    let cake = total_airdrop/total_xpx;
-    if cake == 0 {
-        return 2; // Handle cases where airdrop distribution is too small
-    }
-    
-    for (address, amount) in &participant{
-        print_log(&address);
-        print_log(&amount.to_string());
-        let mut payload: Vec<u8> = Vec::with_capacity(45);
-        let address_byte = encode_address(address);
-        let reward: u64 = amount*cake;
-
-        payload.extend_from_slice(&address_byte);
-        payload.extend_from_slice(&SLICE);
-        payload.extend_from_slice(&mosaic_id.to_le_bytes());
-        payload.extend_from_slice(&reward.to_le_bytes());
-
-        // embedded txn
-        let mut embedded = EmbeddedTransaction::default();
-        embedded.set_entity_type(16724);
-        embedded.set_version(3);
-        embedded.set_payload(payload);
-        aggregate.add_embedded_transaction(embedded);
-    }
-
-    blockchain::set_transaction(&aggregate);
     return 0;
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn set_participate_fee() -> u32 {
+    // if get_caller_public_key() != "".as_bytes() {
+    //     return 2;
+    // }
+
+    let input = get_call_params();
+    let mut file = FileWriter::new("participate_fee").unwrap();
+    file.write(&input).unwrap();
+    file.flush().unwrap();
+    return 0;
+}
 
 // utils
 pub unsafe fn get_participant(filename: &str) -> Vec<(String, u64)> {
@@ -410,6 +448,23 @@ pub unsafe fn get_airdrop_amount() -> u64 {
     }
 }
 
+pub unsafe fn set_airdrop_amount(total_airdrop: u64) {
+    {
+        let mut file = match FileWriter::new("airdrop_amount") {
+            Ok(f) => f,
+            Err(_) => panic!(),
+        };
+
+        if file.write(&total_airdrop.to_le_bytes()).is_err() {
+            panic!();
+        }
+
+        if file.flush().is_err() {
+            panic!();
+        }
+    }
+}
+
 pub unsafe fn get_airdrop_id() -> u64 {
     let mut byte: Vec<u8> = Vec::new();
     
@@ -433,6 +488,85 @@ pub unsafe fn get_airdrop_id() -> u64 {
     }
 }
 
+pub unsafe fn get_prejoin_count() -> u64 {
+    let mut bytes: Vec<u8> = Vec::new();
+
+    {
+        let mut file = match FileReader::new("prejoin_count") {
+            Ok(f) => f,
+            Err(_) => panic!(),
+        };
+
+        if file.read_to_end(&mut bytes).is_err() {
+            print_log("failed to read airdrop_amount file");
+            panic!();
+        }
+    }
+
+    if bytes.len() == 8 {
+        let arr: [u8; 8] = bytes.try_into().expect("Vector has incorrect length");
+        return u64::from_le_bytes(arr);
+    } else {
+        panic!();
+    }
+}
+
+pub unsafe fn set_prejoin_count(count: u64) {
+    let mut bytes: Vec<u8> = Vec::with_capacity(8);
+    bytes.extend_from_slice(&count.to_le_bytes());
+
+    {
+        let mut file = FileWriter::new("prejoin_count").unwrap();
+        if file.write(&bytes).is_err() {
+            print_log("failed to write prejoin file");
+            panic!();
+        }
+        if file.flush().is_err() {
+            print_log("failed to flush prejoin file");
+            panic!();
+        }
+    }
+}
+
+pub unsafe fn get_participant_count() -> u64 {
+    let mut bytes: Vec<u8> = Vec::new();
+
+    {
+        let mut file = match FileReader::new("participant_count") {
+            Ok(f) => f,
+            Err(_) => panic!(),
+        };
+
+        if file.read_to_end(&mut bytes).is_err() {
+            print_log("failed to read airdrop_amount file");
+            panic!();
+        }
+    }
+
+    if bytes.len() == 8 {
+        let arr: [u8; 8] = bytes.try_into().expect("Vector has incorrect length");
+        return u64::from_le_bytes(arr);
+    } else {
+        panic!();
+    }
+}
+
+pub unsafe fn set_participant_count(count: u64) {
+    let mut bytes: Vec<u8> = Vec::with_capacity(8);
+    bytes.extend_from_slice(&count.to_le_bytes());
+
+    {
+        let mut file = FileWriter::new("participant_count").unwrap();
+        if file.write(&bytes).is_err() {
+            print_log("failed to write participant file");
+            panic!();
+        }
+        if file.flush().is_err() {
+            print_log("failed to flush participant file");
+            panic!();
+        }
+    }
+}
 pub unsafe fn append_participant(filename: &str, input: &Vec<u8>) {
     let mut byte: Vec<u8> = Vec::new();
     {
@@ -484,6 +618,12 @@ fn encode_address(address: &str) -> Vec<u8> {
     out
 }
 
-pub fn get_divisibility(amount: u64, n: u32) -> u64 {
-    return amount * 10_u64.pow(n);
+fn split_into_chunks(vec: Vec<(String, u64)>, chunk_size: usize) -> Vec<Vec<(String, u64)>> {
+    vec.chunks(chunk_size)
+    .map(|chunk| chunk.to_vec())
+    .collect()
 }
+
+// pub fn get_divisibility(amount: u64, n: u32) -> u64 {
+//     return amount * 10_u64.pow(n);
+// }
