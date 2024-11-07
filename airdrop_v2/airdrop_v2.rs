@@ -71,6 +71,20 @@ pub unsafe extern "C" fn init() -> u32 {
             panic!();
         }
     }
+    {
+        let mut file = match FileWriter::new("airdrop_end") {
+            Ok(f) => f,
+            Err(_) => panic!(),
+        };
+
+        if file.write(&[255, 255, 255, 255, 255, 255, 255, 255]).is_err() { //max int
+            panic!();
+        }
+
+        if file.flush().is_err() {
+            panic!();
+        }
+    }
     return 0;
 }
 
@@ -143,7 +157,7 @@ pub unsafe extern "C" fn prejoin() -> u32 {
 
 #[no_mangle]
 pub unsafe extern "C" fn join() -> u32 {
-    let baseurl = "http://127.0.0.1:3000/account/";
+    let baseurl = "http://109.123.232.101:3000/account/";
     if get_block_height() >= get_end_height() {
         panic!();
     }
@@ -277,7 +291,7 @@ pub unsafe extern "C" fn distribute() -> u32 {
         }
     } else {
         // check lowest balance from block x - y
-        let baseurl = "http://127.0.0.1:3000/account/";
+        let baseurl = "http://109.123.232.101:3000/account/";
     
         // Read participants
         let participant = get_participant("participant");
