@@ -1,1 +1,1 @@
-This contract save string into sirius storage.
+This contract read and write string into sirius storage.
