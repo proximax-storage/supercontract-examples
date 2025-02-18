@@ -1,10 +1,10 @@
-### This contract gathers specific amount of fund and send to recipient. If the fund amount does not meet the predefined value at certain timeframe, the fund will be return to the investor.
+### This contract is designed to gather a specific amount of funds and send them to a designated recipient. If the total fund does not meet the predefined target by a certain timeframe, the collected amount will be returned to the investors.
 
 #### ```init()```
-This function is used when deploying the contract. Contract caller is required to input amount to crowdfund in call parameter.
+This function is used during the deployment of the contract. The contract caller is required to specify the target amount for crowdfunding in the call parameters.
 
 #### ```contribute()```
-This function is to contribute to the crowdfunding. Contract caller is required to input amount to invest in the service payment column and caller's address in the call parameter.
+This function allows participants to contribute to the crowdfunding campaign. The contract caller must provide the investment amount in the service payment field, and the caller's address in the call parameters.
 
 #### ```distribute()```
-This function is to send the fund to the recipient. It should be call with autorun feature so that it will automatically send the fund or return the fund to investor at specific block height.
+This function handles the distribution of funds to the recipient. It should be executed with the autorun feature to ensure automatic distribution or return of the funds to investors at a specified block height.

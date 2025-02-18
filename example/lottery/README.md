@@ -1,10 +1,10 @@
-### Only 20 players can join each game. To join the game, player are required to buy a ticket(100xpx). A winner will pick at random among the 20 player. 95% of the token to the winner, 5% of the token are kept in the Supercontract account
+### This Supercontract allows up to 20 players to join each game by purchasing a ticket for 100 XPX. Once 20 players have joined, a winner is randomly selected. The winner receives 95% of the total tokens, while the remaining 5% is retained in the Supercontract account.
 
 #### ```init()```
-This function is used when deploying the contract. It create neccesary file to run the contract.
+This function is called when deploying the contract. It initializes the necessary files to run the contract.
 
 #### ```join()```
-This function is to join to the lottery. Contract caller is required to input 100xpx in the service payment column and account address in the call parameter.
+This function allows players to join the lottery. The contract caller must provide 100 XPX in the service payment field and input their account address in the call parameter.
 
 #### ```distribute()```
-This function is to send the prize to the winner. It should be call with autorun feature so that it will automatically send the prize or return the ticket amount to player if there if not enough 20 players join the game.
+This function distributes the prize to the winner. It is designed to be triggered by the autorun feature, which automatically sends the prize or refunds the ticket amount if fewer than 20 players join the game.

@@ -1,14 +1,18 @@
-## Owner only functions
+## The airdrop contract manages the distribution of tokens (such as XPX) to participants based on their contribution ratio. 
 
 ### Airdrop calculation
 
-reward = X/Y*Z
+Formula: reward = X/Y*Z
 
-X= total_airdrop
+Where: 
 
-Y= total_xpx_participanted
+- X= total_airdrop
 
-Z= xpx_participated
+- Y= total_xpx_participanted
+
+- Z= xpx_participated
+
+### Owner's functions
 
 #### ```init()```
 
@@ -16,7 +20,7 @@ Initialize airdrop supercontract
 
 #### ```set_airdrop_divisibility()```
 
-Set airdrop divisibility
+Sets the divisibility for the airdrop token.
 
 Input divisibility in parameter field: ```6``` (example)
 
@@ -76,7 +80,7 @@ Automatic Execution Call Payment (fee to run the autorun): 1000
 Automatic Download Call Payment (fee to download file if any): 0 
 
 
-## User's functions
+### User's functions
 #### ```join()```
 
 To participate the airdrop.

@@ -1,4 +1,4 @@
-## Owner only functions
+## The airdrop contract manages the distribution of tokens (such as XPX) to participants based on their contribution ratio. 
 
 ### Airdrop calculation
 
@@ -9,6 +9,8 @@ X= your lowest balance between block y and block z
 Y= sum total of all participants' lowest balance between block y and block z.
 
 Z= total airdrop
+
+### Owner's functions
 
 #### ```init()```
 
@@ -78,7 +80,7 @@ Automatic Execution Call Payment (fee to run the autorun): 1000
 Automatic Download Call Payment (fee to download file if any): 0 
 
 
-## User's functions
+### User's functions
 #### ```join()```
 
 To participate the airdrop.

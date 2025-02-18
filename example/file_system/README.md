@@ -1,1 +1,1 @@
-This contract read and write string into sirius storage.
+This Supercontract demonstrates basic file operations using Sirius Chain Supercontract, specifically reading from and writing to files within the Sirius Chain DFMS.

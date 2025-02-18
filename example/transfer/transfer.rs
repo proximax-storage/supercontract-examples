@@ -14,7 +14,8 @@ pub unsafe extern "C" fn transfer() -> u32 {
 
     // generate payload
     let mosaic = get_service_payments();
-    let address = "SB3Z7PF6P5WFNSJLLCPZAENN32XR7BHINFWJR6L6";
+    let input = get_call_params();
+    let address = str::from_utf8_unchecked(&input);
     let mut address_byte = encode_address(address);
     let mosaic_id = mosaic.get(0).unwrap().mosaic_id.to_le_bytes();
     let mosaic_amount = mosaic.get(0).unwrap().amount.to_le_bytes();
@@ -24,6 +25,7 @@ pub unsafe extern "C" fn transfer() -> u32 {
 
     // embedded txn
     let mut embedded = EmbeddedTransaction::default();
+    // 16724 is the entity type for transfer transactions
     embedded.set_entity_type(16724);
     embedded.set_version(3);
     embedded.set_payload(address_byte);

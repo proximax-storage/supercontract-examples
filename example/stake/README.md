@@ -1,9 +1,9 @@
-### This contract will stake participant's fund.
+### This contract allows participants to stake their funds and earn interest.
 #### ```deposit_interest()```
-Contract creator is required to deposit some xpx into the Supercontract. this is used to pay staker's interest. When calling this function, caller should input amount to deposit into Supercontract in the service payment column.
+The contract creator is required to deposit XPX into the Supercontract to fund the interest payouts for stakers. When calling this function, the caller must input the amount to deposit into the service payment field.
 #### ```join()```
-Minimum amount to stake is 100xpx, to join the stake, caller should input their xpx in the service payment column and their address in call parameter. 
+To participate in staking, the minimum stake is 100 XPX. The caller should input the amount of XPX they wish to stake in the service payment field and provide their address in the call parameter.
 #### ```withdraw()```
-To withdraw the staked token, user is required to call the withdraw function. If the stake duration is met, the stake amount + 10% interest are return to the user. When calling the function user is required to input thier address in the call parameter.
+To withdraw staked tokens, the user must call the withdraw function. If the staking duration has been met, the user will receive the staked amount plus a 10% interest. When calling this function, the user must input their address in the call parameter.
 
 

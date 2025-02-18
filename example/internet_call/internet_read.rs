@@ -29,9 +29,13 @@ struct Root {
 #[no_mangle]
 pub unsafe extern "C" fn run() -> u32 {
 
+    // Sirius chain Rest Endpoint
     let baseurl = "http://109.123.232.101:3000/account/";
+
+    // Account to fetch
     let address = "SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO";
     {
+        // Fetch the url "http://109.123.232.101:3000/account/SD2L2LRSBZUMYV2T34C4UXOIAAWX4TWQSQGBPMQO"
         let internet = internet::Internet::new(&format!("{}{}", baseurl, address), true).unwrap();
         let mut reader = BufReader::with_capacity(1024, internet);
         let mut internet_buffer = Vec::new();
