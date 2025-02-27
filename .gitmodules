@@ -1,0 +1,3 @@
+[submodule "rust-xpx-supercontract-client-sdk"]
+	path = rust-xpx-supercontract-client-sdk
+	url = https://github.com/proximax-storage/rust-xpx-supercontract-client-sdk
