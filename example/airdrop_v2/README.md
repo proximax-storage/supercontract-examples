@@ -1,4 +1,4 @@
-## The airdrop contract manages the distribution of tokens (such as XPX) to participants based on their contribution ratio. 
+## The airdrop contract manages the distribution of tokens (such as XPX) to participants based on their contribution ratio (between certain block heights). 
 
 ### Airdrop calculation
 
