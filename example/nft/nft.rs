@@ -85,6 +85,7 @@ pub unsafe extern "C" fn listing() -> u32 {
     return 0;
 }
 
+// Todo require fix
 #[no_mangle]
 pub unsafe extern "C" fn buying() -> u32 {
     let mosaics = get_service_payments();
