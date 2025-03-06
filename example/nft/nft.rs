@@ -34,21 +34,19 @@ struct Root {
 #[no_mangle]
 pub unsafe extern "C" fn listing() -> u32 {
     let public_key_byte = get_caller_public_key();
-    let public_key: u64 = str::from_utf8_unchecked(&public_key_byte).parse().unwrap();
-    print_log(public_key);
+    let public_key= str::from_utf8_unchecked(&public_key_byte);
+    print_log(&public_key);
     let assets = get_service_payments();
     let asset_id = assets[0].mosaic_id;
-    print_log(asset_id)
     let price_byte = get_call_params();
     let price: u64 = str::from_utf8_unchecked(&price_byte).parse().unwrap();
-    print_log(price);
     {
         let mut file = match FileWriter::new("owner_pubKey") {
             Ok(f) => f,
             Err(_) => panic!(),
         };
 
-        if file.write(&public_key.to_le_bytes()).is_err() {
+        if file.write(&public_key.as_bytes()).is_err() {
             panic!();
         }
 
