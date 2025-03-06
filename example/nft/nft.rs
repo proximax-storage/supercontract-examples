@@ -34,8 +34,7 @@ struct Root {
 #[no_mangle]
 pub unsafe extern "C" fn listing() -> u32 {
     let public_key_byte = get_caller_public_key();
-    let public_key= str::from_utf8_unchecked(&public_key_byte);
-    print_log(&public_key);
+    let public_key: String = public_key_byte.iter().map(|byte| format!("{:02x}", byte)).collect();
     let assets = get_service_payments();
     let asset_id = assets[0].mosaic_id;
     let price_byte = get_call_params();
@@ -54,7 +53,6 @@ pub unsafe extern "C" fn listing() -> u32 {
             panic!();
         }
     }
-    print_log("write success");
     {
         let mut file = match FileWriter::new("asset_id") {
             Ok(f) => f,
@@ -69,7 +67,6 @@ pub unsafe extern "C" fn listing() -> u32 {
             panic!();
         }
     }
-    print_log("write success");
 
     {
         let mut file = match FileWriter::new("asset_price") {
@@ -85,7 +82,6 @@ pub unsafe extern "C" fn listing() -> u32 {
             panic!();
         }
     }
-    print_log("write success");
 
     return 0;
 }
