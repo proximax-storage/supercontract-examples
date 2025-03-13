@@ -2,13 +2,27 @@
 
 ### Airdrop calculation
 
-reward = X/Y*Z
+  reward = X/Y*Z
 
-X= your lowest balance between block y and block z
+  X= your lowest balance between block y and block z
 
-Y= sum total of all participants' lowest balance between block y and block z.
+  Y= sum total of all participants' lowest balance between block y and block z.
 
-Z= total airdrop
+  Z= total airdrop
+
+**How to use:**
+
+In the storage user app, input following parameters.
+
+Automatic Execution Number(how many repetition you want it to trigger): 1
+
+Automatic Execution File Name (what file will it call when autorun condition is met): airdrop.wasm
+
+Automatic Execution Function Name (what function in the file will it call): distribute
+
+Automatic Execution Call Payment (fee to run the autorun): 1000 
+
+Automatic Download Call Payment (fee to download file if any): 0 
 
 ### Owner's functions
 
@@ -64,20 +78,6 @@ Autorun.rs is used to determine when to distribute the airdrop.
 In this example, this airdrop will release when height is equal to ```20000```
 
 autorun.rs is triggered everytimes new block height is generated. It will check the condition, if condition is met, it will call the ```distribute()```.
-
-**How to use:**
-
-In the storage user app, input following parameters.
-
-Automatic Execution Number(how many repetition you want it to trigger): 1
-
-Automatic Execution File Name (what file will it call when autorun condition is met): airdrop.wasm
-
-Automatic Execution Function Name (what function in the file will it call): distribute
-
-Automatic Execution Call Payment (fee to run the autorun): 1000 
-
-Automatic Download Call Payment (fee to download file if any): 0 
 
 
 ### User's functions
