@@ -12,17 +12,17 @@
 
 **How to use:**
 
-In the storage user app, input following parameters.
+Contract creator
+1. Contract creator calls init() to initialize the airdop contract.
+2. Contract creator calls set_end_height() to determine the airdrop blockheight.
+3. Contract creator calls set_participate_fee() to determine the users' airdrop participation fee.
+4. Contract creator calls deposit() to deposit token to airdrop.
 
-Automatic Execution Number(how many repetition you want it to trigger): 1
+Users
+1. Users call the join() to participate the airdrop event.
 
-Automatic Execution File Name (what file will it call when autorun condition is met): airdrop.wasm
-
-Automatic Execution Function Name (what function in the file will it call): distribute
-
-Automatic Execution Call Payment (fee to run the autorun): 1000 
-
-Automatic Download Call Payment (fee to download file if any): 0 
+Supercontract
+1. When the airdrop height is reached, the airdrop will be automatically distributed to participants based on the airdrop calculation.
 
 ### Owner's functions
 
