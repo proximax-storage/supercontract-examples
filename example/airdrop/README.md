@@ -12,6 +12,20 @@ Where:
 
 - Z= xpx_participated
 
+**How to use:**
+
+Contract creator
+1. Contract creator calls init() to initialize the airdop contract.
+2. Contract creator calls set_end_height() to determine the airdrop blockheight.
+3. Contract creator calls set_participate_fee() to determine the users' airdrop participation fee.
+4. Contract creator calls deposit() to deposit token to airdrop.
+
+Users
+1. Users call the join() to participate the airdrop event.
+
+Supercontract
+1. When the airdrop height is reached, the airdrop will be automatically distributed to participants based on the airdrop calculation.
+
 ### Owner's functions
 
 #### ```init()```
